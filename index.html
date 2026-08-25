@@ -1031,6 +1031,13 @@ function badgeOrigem(origem){
   return `<span class="badge ${origem==='USA'?'badge-usa':'badge-br'}">${origem}</span>`;
 }
 
+function badgeOrigemOuSobras(ordem){
+  if(ordem.fonte === "sobras"){
+    return `<span class="badge" style="background:#F3E8FF; color:#9333ea;">SOBRAS</span>`;
+  }
+  return badgeOrigem(ordem.origem);
+}
+
 function renderSummary(grupos){
   const strip = document.getElementById("summaryStrip");
   strip.innerHTML = "";
@@ -1424,7 +1431,7 @@ function cardOrdem(ordem, divergencia, opts={}){
 
   const main = el("div","card-main");
   const top = el("div","card-top");
-  top.innerHTML = `${badgeOrigem(ordem.origem)} <span class="ordem-num mono">Ordem ${ordem.ordem}</span>` +
+  top.innerHTML = `${badgeOrigemOuSobras(ordem)} <span class="ordem-num mono">Ordem ${ordem.ordem}</span>` +
     (isUrgent ? ` <span class="badge badge-urgent">+24h sem mostrar</span>` : "");
   const copyBtn = el("button","copy-ordem-btn","📋");
   copyBtn.title = "Copiar número da ordem";
@@ -1834,7 +1841,7 @@ function renderRelatorioView(app){
       card.innerHTML = `
         <div class="atencao-card-top">
           <div class="atencao-info">
-            <div class="ordem-num">${badgeOrigem(o.ordem.origem)} Ordem ${o.ordem.ordem} — ${lojaDe(o.ordem)}</div>
+            <div class="ordem-num">${badgeOrigemOuSobras(o.ordem)} Ordem ${o.ordem.ordem} — ${lojaDe(o.ordem)}</div>
             <div class="detalhe">Vendedora: ${o.ordem.vendedora || "-"} · Itens: ${o.itens.slice(0,3).join(", ")}${o.itens.length>3 ? "…" : ""}</div>
             <div class="expand-hint">${ATENCAO_EXPANDIDAS.has(rid) ? "▲ clique para recolher" : "▼ clique para ver itens e fotos"}</div>
           </div>
