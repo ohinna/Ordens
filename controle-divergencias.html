@@ -1,0 +1,2166 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Controle de Divergências</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<style>
+  :root{
+    --bg: #EEF1F3;
+    --panel: #FFFFFF;
+    --panel-border: #E1E6EA;
+    --ink: #1B2430;
+    --ink-soft: #64707D;
+    --brand: #0F5257;
+    --brand-soft: #E4F0F0;
+    --amber: #B5680B;
+    --amber-bg: #FCF0DD;
+    --blue: #2054C6;
+    --blue-bg: #E8EFFC;
+    --green: #157F3D;
+    --green-bg: #E5F7EB;
+    --red: #C22B2B;
+    --red-bg: #FBE7E7;
+    --usa: #4A3FB5;
+    --usa-bg: #EBE9FA;
+    --br: #0A7A57;
+    --br-bg: #E1F5ED;
+    --radius: 14px;
+    --shadow: 0 1px 2px rgba(20,30,40,.04), 0 6px 20px rgba(20,30,40,.05);
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--ink);
+    font-family:'Inter',system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  .mono{font-family:'JetBrains Mono',monospace;}
+  .display{font-family:'Space Grotesk',sans-serif;}
+
+  header.topbar{
+    background:var(--brand);
+    color:#fff;
+    padding:22px 28px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    flex-wrap:wrap;
+    gap:14px;
+  }
+  header.topbar h1{
+    font-family:'Space Grotesk',sans-serif;
+    font-size:22px;
+    font-weight:600;
+    margin:0;
+    letter-spacing:-0.01em;
+  }
+  header.topbar .today{
+    font-size:13px;
+    opacity:.85;
+    margin-top:2px;
+  }
+  .summary-strip{
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+  }
+  .topbar-actions{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    flex-wrap:wrap;
+    justify-content:flex-end;
+  }
+  .btn-header-sync{
+    background:rgba(255,255,255,.16);
+    color:#fff;
+    border:1px solid rgba(255,255,255,.3);
+  }
+  .btn-header-sync:hover{ background:rgba(255,255,255,.26); }
+  .topbar-actions .btn-ghost{
+    background:rgba(255,255,255,.9);
+  }
+  .summary-pill{
+    background:rgba(255,255,255,.12);
+    border:1px solid rgba(255,255,255,.22);
+    border-radius:999px;
+    padding:7px 14px;
+    font-size:13px;
+    display:flex;
+    align-items:center;
+    gap:7px;
+    white-space:nowrap;
+    cursor:pointer;
+    transition:background .12s;
+  }
+  .summary-pill:hover{background:rgba(255,255,255,.2);}
+  .summary-pill.active{background:#fff; color:var(--brand);}
+  .summary-pill b{font-family:'Space Grotesk',sans-serif; font-size:15px;}
+
+  .container{
+    max-width:1200px;
+    margin:0 auto;
+    padding:24px 20px 80px;
+  }
+
+  .toolbar{
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+    align-items:center;
+    margin-bottom:20px;
+  }
+  .toolbar input[type=text], .toolbar select{
+    font-family:'Inter',sans-serif;
+    font-size:14px;
+    border:1px solid var(--panel-border);
+    background:var(--panel);
+    border-radius:10px;
+    padding:9px 12px;
+    color:var(--ink);
+  }
+  .toolbar input[type=text]{flex:1; min-width:180px;}
+  .toolbar select{cursor:pointer;}
+  .btn{
+    font-family:'Inter',sans-serif;
+    font-weight:600;
+    font-size:13.5px;
+    border:none;
+    border-radius:10px;
+    padding:9px 15px;
+    cursor:pointer;
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+  }
+  .btn-brand{background:var(--brand); color:#fff;}
+  .btn-brand:hover{background:#0C4247;}
+  .btn-check-mostrar{background:var(--green-bg); color:var(--green); border:1px solid transparent;}
+  .btn-check-mostrar:hover{background:#CDEFDA;}
+  .btn-ghost{background:#fff; border:1px solid var(--panel-border); color:var(--ink);}
+  .btn-ghost:hover{background:#F7F9FA;}
+  .btn-sm{padding:6px 11px; font-size:12.5px; border-radius:8px;}
+  .btn:disabled{opacity:.45; cursor:default;}
+
+  .section{margin-bottom:34px;}
+  .section-head{
+    display:flex;
+    align-items:baseline;
+    gap:10px;
+    margin-bottom:12px;
+  }
+  .section-head h2{
+    font-family:'Space Grotesk',sans-serif;
+    font-size:16px;
+    margin:0;
+    font-weight:600;
+  }
+  .section-head .count{
+    font-size:12.5px;
+    color:var(--ink-soft);
+    background:#fff;
+    border:1px solid var(--panel-border);
+    padding:2px 9px;
+    border-radius:999px;
+  }
+  .section-head .count-itens{
+    color:var(--amber);
+    background:var(--amber-bg);
+    border-color:transparent;
+    font-weight:600;
+  }
+  .section-head .hint{font-size:12.5px; color:var(--ink-soft); margin-left:auto;}
+
+  .view-tabs{ display:flex; gap:8px; margin:16px 20px 0; }
+  .view-tab{
+    padding:9px 18px; border-radius:10px; border:1px solid var(--panel-border);
+    background:#fff; cursor:pointer; font-weight:600; font-size:13.5px; color:var(--ink);
+  }
+  .view-tab:hover{ background:#F7F9FA; }
+  .view-tab.active{ background:var(--brand); color:#fff; border-color:var(--brand); }
+
+  .relatorio-cards{ display:flex; gap:12px; flex-wrap:wrap; margin-bottom:22px; }
+  .relatorio-card{
+    flex:1; min-width:150px; background:#fff; border-radius:var(--radius);
+    padding:16px; text-align:center; box-shadow:var(--shadow);
+  }
+  .relatorio-card .valor{ font-family:'Space Grotesk',sans-serif; font-size:30px; font-weight:700; }
+  .relatorio-card .label{ font-size:12.5px; color:var(--ink-soft); margin-top:4px; }
+  .relatorio-card.card-total{ background:var(--brand-soft); }
+  .relatorio-card.card-atrasado{ background:var(--red-bg); }
+  .relatorio-card.card-emdia{ background:var(--green-bg); }
+  .relatorio-card.card-pendente{ background:var(--amber-bg); }
+
+  .relatorio-charts{ display:flex; gap:16px; flex-wrap:wrap; margin-bottom:26px; }
+  .chart-box{
+    flex:1; min-width:280px; background:#fff; border-radius:var(--radius);
+    box-shadow:var(--shadow); padding:16px; height:280px;
+  }
+  .chart-box h3{ font-family:'Space Grotesk',sans-serif; font-size:14px; margin:0 0 8px; }
+  .chart-box canvas{ max-height:220px; }
+
+  .atencao-card{
+    background:var(--panel); border:1px solid var(--panel-border); border-left:5px solid var(--red);
+    border-radius:var(--radius); box-shadow:var(--shadow); padding:14px 16px;
+    margin-bottom:10px; display:flex; flex-direction:column; gap:4px;
+  }
+  .atencao-card-top{ display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; }
+  .atencao-info{ flex:1; min-width:220px; }
+  .atencao-info .ordem-num{ font-size:14.5px; font-weight:700; }
+  .atencao-info .detalhe{ font-size:12.5px; color:var(--ink-soft); margin-top:2px; }
+  .atencao-badge{
+    background:var(--red-bg); color:var(--red); font-weight:700; font-size:12.5px;
+    padding:4px 12px; border-radius:999px; white-space:nowrap;
+  }
+  .atencao-badge-ok{ background:var(--green-bg); color:var(--green); }
+
+  .atencao-subtabs{ margin:14px 0 12px; }
+  .atencao-tabs-row{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .atencao-subtab{
+    font-family:'Inter',sans-serif; font-size:13px; font-weight:600;
+    padding:8px 14px; border-radius:9px; border:1px solid var(--panel-border);
+    background:#fff; color:var(--ink); cursor:pointer; display:flex; align-items:center; gap:6px;
+  }
+  .atencao-subtab:hover{ background:#F7F9FA; }
+  .atencao-subtab.active{ background:var(--brand); border-color:var(--brand); color:#fff; }
+  .atencao-subtab .n{
+    background:rgba(0,0,0,.08); border-radius:999px; padding:1px 7px; font-size:11.5px;
+  }
+  .atencao-subtab.active .n{ background:rgba(255,255,255,.25); }
+  .atencao-filtro-vendedora{ margin-left:auto; }
+  .atencao-card-urgente{ border-color:var(--red); box-shadow:0 0 0 1px var(--red) inset, var(--shadow); }
+
+  .empty{
+    background:var(--panel);
+    border:1px dashed var(--panel-border);
+    border-radius:var(--radius);
+    padding:26px;
+    text-align:center;
+    color:var(--ink-soft);
+    font-size:13.5px;
+  }
+
+  .cards{display:flex; flex-direction:column; gap:10px;}
+  .card{
+    background:var(--panel);
+    border:1px solid var(--panel-border);
+    border-left:5px solid var(--panel-border);
+    border-radius:var(--radius);
+    box-shadow:var(--shadow);
+    padding:16px 18px;
+    display:flex;
+    flex-direction:column;
+    gap:2px;
+  }
+  .card.lvl-ok{border-left-color:var(--amber);}
+  .card.lvl-warn{border-left-color:#D9740B;}
+  .card.lvl-late{border-left-color:var(--red);}
+  .card.lvl-emdia{border-left-color:var(--green);}
+  .card.urgent{box-shadow:0 0 0 1px var(--red) inset, var(--shadow);}
+  .card-row{
+    display:flex;
+    gap:16px;
+    align-items:flex-start;
+    flex-wrap:wrap;
+    cursor:pointer;
+  }
+  .card-main{flex:1; min-width:230px;}
+  .card-top{display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:6px;}
+  .expand-hint{font-size:11.5px; color:var(--ink-soft); margin-top:2px;}
+  .item-list{
+    margin-top:14px;
+    padding-top:14px;
+    border-top:1px solid var(--panel-border);
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+  }
+  .item-row{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    padding:8px;
+    border-radius:10px;
+    background:#F7F8F9;
+    opacity:.7;
+  }
+  .item-row.faltando{
+    background:var(--red-bg);
+    opacity:1;
+    border:1px solid #F3B9B9;
+  }
+  .item-row .item-name{color:var(--ink-soft); font-weight:500;}
+  .item-row.faltando .item-name{color:var(--ink); font-weight:700;}
+  .item-row .item-photo, .item-row .item-photo-placeholder{filter:grayscale(40%);}
+  .item-row.faltando .item-photo, .item-row.faltando .item-photo-placeholder{filter:none;}
+  .item-photo{
+    width:44px; height:44px; border-radius:8px; object-fit:cover;
+    background:#E1E6EA; flex-shrink:0;
+  }
+  .item-photo-link{display:block; text-decoration:none;}
+    width:44px; height:44px; border-radius:8px; background:#E1E6EA;
+    display:flex; align-items:center; justify-content:center;
+    font-size:8px; color:var(--ink-soft); text-align:center; flex-shrink:0;
+    padding:2px; line-height:1.1; overflow:hidden; word-break:break-all;
+  }
+  .item-info{flex:1; min-width:120px;}
+  .item-name{font-size:13px; font-weight:600;}
+  .item-meta{font-size:12px; color:var(--ink-soft);}
+  .item-status{font-size:11.5px; font-weight:700; padding:3px 9px; border-radius:999px; white-space:nowrap;}
+  .item-status.ok{background:#EBEDEF; color:var(--ink-soft); font-weight:600;}
+  .item-status.pendente{background:var(--red-bg); color:var(--red);}
+  .item-status.aguardando{background:var(--amber-bg); color:var(--amber);}
+  .item-row.aguardando{background:#FFF8EA; opacity:1;}
+
+  .item-outcomes{
+    display:flex; gap:12px; flex-wrap:wrap; margin-top:6px;
+  }
+  .item-outcome-check{
+    font-size:11.5px; display:flex; align-items:center; gap:5px;
+    color:var(--ink-soft); cursor:pointer; user-select:none;
+  }
+  .item-outcome-check input{width:13px; height:13px; cursor:pointer;}
+  .item-outcome-check.checked{color:var(--ink); font-weight:600;}
+  .verificado-check{
+    display:flex; align-items:center; gap:6px;
+    font-size:12px; color:var(--ink-soft); cursor:pointer;
+    user-select:none;
+  }
+  .verificado-check input{cursor:pointer; width:14px; height:14px;}
+  .verificado-check.checked{color:var(--green); font-weight:600;}
+  .copy-ordem-btn{
+    background:none; border:none; cursor:pointer; padding:2px 4px;
+    color:var(--ink-soft); font-size:13px; line-height:1;
+    border-radius:5px;
+  }
+  .copy-ordem-btn:hover{background:#F0F2F4; color:var(--brand);}
+
+  .progress-bar{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    vertical-align:middle;
+  }
+  .progress-track{
+    width:64px; height:6px; border-radius:999px; background:#E1E6EA; overflow:hidden;
+  }
+  .progress-fill{height:100%; border-radius:999px; background:var(--green);}
+
+  .loja-group{margin-bottom:4px;}
+  .loja-group-header{
+    display:flex; align-items:center; gap:8px;
+    font-size:12.5px; font-weight:700; color:var(--ink-soft);
+    text-transform:uppercase; letter-spacing:.03em;
+    padding:14px 2px 6px;
+  }
+  .loja-group-header .n{
+    font-weight:600; text-transform:none; letter-spacing:0;
+    background:#fff; border:1px solid var(--panel-border);
+    border-radius:999px; padding:1px 8px; font-size:11.5px;
+  }
+  .loja-group:first-child .loja-group-header{padding-top:0;}
+  .badge{
+    font-size:11px;
+    font-weight:700;
+    padding:3px 8px;
+    border-radius:6px;
+    letter-spacing:.02em;
+  }
+  .badge-usa{background:var(--usa-bg); color:var(--usa);}
+  .badge-br{background:var(--br-bg); color:var(--br);}
+  .badge-urgent{background:var(--red-bg); color:var(--red);}
+  .ordem-num{font-size:15px; font-weight:600;}
+  .card-sub{font-size:13px; color:var(--ink-soft);}
+  .card-items{font-size:12.5px; color:var(--ink-soft); margin-top:6px;}
+  .card-items b{color:var(--ink);}
+  .card-side{
+    display:flex;
+    flex-direction:column;
+    align-items:flex-end;
+    gap:8px;
+    min-width:160px;
+  }
+  .days-tag{
+    font-size:12px;
+    font-weight:600;
+    padding:4px 10px;
+    border-radius:999px;
+  }
+  .days-ok{background:var(--amber-bg); color:var(--amber);}
+  .days-warn{background:#FDECC8; color:#8A4B00;}
+  .days-late{background:var(--red-bg); color:var(--red);}
+  .days-emdia{background:var(--green-bg); color:var(--green);}
+  .status-tag{
+    font-size:12px;
+    font-weight:600;
+    padding:4px 10px;
+    border-radius:999px;
+  }
+  .status-reportado{background:var(--blue-bg); color:var(--blue);}
+  .status-resolvido{background:var(--green-bg); color:var(--green);}
+  .card-actions{display:flex; gap:6px; flex-wrap:wrap; justify-content:flex-end;}
+
+  details.resolved-block summary{
+    cursor:pointer;
+    font-size:13px;
+    color:var(--ink-soft);
+    padding:10px 4px;
+  }
+
+  /* Modal */
+  .overlay{
+    position:fixed; inset:0; background:rgba(20,30,40,.45);
+    display:flex; align-items:center; justify-content:center;
+    padding:20px; z-index:50;
+  }
+  .modal{
+    background:#fff; border-radius:16px; padding:26px;
+    width:100%; max-width:440px;
+    box-shadow:0 20px 60px rgba(0,0,0,.25);
+  }
+  .modal h3{font-family:'Space Grotesk',sans-serif; margin:0 0 4px; font-size:18px;}
+  .modal .modal-sub{font-size:13px; color:var(--ink-soft); margin-bottom:18px;}
+  .field{margin-bottom:14px;}
+  .field label{display:block; font-size:12.5px; font-weight:600; margin-bottom:5px; color:var(--ink-soft);}
+  .field select, .field textarea, .field input{
+    width:100%; font-family:'Inter',sans-serif; font-size:14px;
+    border:1px solid var(--panel-border); border-radius:9px; padding:9px 11px;
+    color:var(--ink);
+  }
+  .field textarea{resize:vertical; min-height:60px;}
+  .tipo-opcoes{display:flex; flex-wrap:wrap; gap:8px;}
+  .tipo-chip{
+    font-family:'Inter',sans-serif; font-size:13px; font-weight:600;
+    padding:8px 13px; border-radius:9px; border:1.5px solid var(--panel-border);
+    background:#fff; color:var(--ink); cursor:pointer; text-align:left;
+  }
+  .tipo-chip:hover{ background:#F7F9FA; }
+  .tipo-chip.selecionado{ background:var(--brand); border-color:var(--brand); color:#fff; }
+
+  /* Dropdown customizado (substitui <select> nativo por robustez) */
+  .csel{ position:relative; display:inline-block; }
+  .csel-btn{
+    font-family:'Inter',sans-serif; font-size:14px; border:1px solid var(--panel-border);
+    background:#fff; border-radius:10px; padding:9px 12px; cursor:pointer; color:var(--ink);
+    display:flex; align-items:center; gap:6px; white-space:nowrap;
+  }
+  .csel-btn:hover{ background:#F7F9FA; }
+  .csel-arrow{ font-size:10px; color:var(--ink-soft); }
+  .csel-list{
+    position:absolute; top:calc(100% + 4px); left:0; min-width:180px;
+    background:#fff; border:1px solid var(--panel-border); border-radius:10px;
+    box-shadow:var(--shadow); z-index:60; max-height:260px; overflow-y:auto; padding:4px;
+  }
+  .csel-opt{ padding:8px 10px; border-radius:7px; font-size:13.5px; cursor:pointer; white-space:nowrap; }
+  .csel-opt:hover{ background:#F0F2F4; }
+  .csel-opt.selecionado{ background:var(--brand-soft); color:var(--brand); font-weight:600; }
+  .modal-actions{display:flex; gap:8px; justify-content:flex-end; margin-top:18px;}
+
+  .loading, .error-box{
+    max-width:1200px; margin:60px auto; text-align:center; color:var(--ink-soft); font-size:14px;
+  }
+  .error-box{color:var(--red);}
+  .toast{
+    position:fixed; bottom:24px; left:50%; transform:translateX(-50%);
+    background:var(--ink); color:#fff; padding:10px 18px; border-radius:10px;
+    font-size:13.5px; z-index:100; box-shadow:var(--shadow);
+  }
+
+  @media (max-width:640px){
+    .card{flex-direction:column;}
+    .card-side{align-items:flex-start; width:100%;}
+    .card-actions{justify-content:flex-start;}
+  }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div>
+    <h1>Controle de Divergências</h1>
+    <div class="today" id="todayLabel"></div>
+  </div>
+  <div class="topbar-actions">
+    <div class="summary-strip" id="summaryStrip"></div>
+    <button class="btn btn-ghost btn-sm" id="refreshBtnTop">Atualizar dados</button>
+    <button class="btn btn-header-sync btn-sm" id="syncRelatorioBtnTop">Sincronizar relatório</button>
+  </div>
+</header>
+
+<div class="container" id="app">
+  <div class="loading" id="loadingMsg">Carregando ordens…</div>
+</div>
+
+<div id="modalRoot"></div>
+<div id="toastRoot"></div>
+
+<script>
+/* ---------- Gera relatório em PDF (via impressão do navegador) ---------- */
+function abrirModalPdf(){
+  const marcasDisponiveis = new Set();
+  const vendedorasDisponiveis = new Set();
+  ORDERS.forEach(ordem => {
+    const a = analisarOrdem(ordem);
+    if(!a.temProblemaReal) return;
+    vendedorasDisponiveis.add((ordem.vendedora || "-").trim() || "-");
+    a.pendentes.forEach(it => { if(it.marca && it.marca.trim()) marcasDisponiveis.add(it.marca.trim()); });
+  });
+  const vendedoras = Array.from(vendedorasDisponiveis).sort();
+  const marcas = Array.from(marcasDisponiveis).sort();
+
+  const root = document.getElementById("modalRoot");
+  root.innerHTML = "";
+  const overlay = el("div","overlay");
+  const modal = el("div","modal");
+  let pdfFiltroVendedora = "todas";
+  let pdfFiltroMarca = "todas";
+  let pdfIncluirEntregues = false;
+  modal.innerHTML = `
+    <h3>Baixar PDF</h3>
+    <div class="modal-sub">Escolha o que incluir no relatório</div>
+    <div class="field">
+      <label>Vendedora</label>
+      ${criarSelectCustomHTML("pdfVendedora", [{value:"todas",label:"Todas"}, ...vendedoras.map(v=>({value:v,label:v}))], "todas")}
+    </div>
+    <div class="field">
+      <label>Marca</label>
+      ${criarSelectCustomHTML("pdfMarca", [{value:"todas",label:"Todas"}, ...marcas.map(m=>({value:m,label:m}))], "todas")}
+    </div>
+    <div class="field">
+      <label class="verificado-check" id="pdfEntreguesCheck">
+        <input type="checkbox" id="pdfEntreguesInput"> Incluir itens já entregues
+      </label>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="cancelPdfBtn">Cancelar</button>
+      <button class="btn btn-brand" id="gerarPdfBtn">Gerar PDF</button>
+    </div>
+  `;
+  overlay.appendChild(modal);
+  root.appendChild(overlay);
+  ativarSelectCustom("pdfVendedora", (v) => { pdfFiltroVendedora = v; });
+  ativarSelectCustom("pdfMarca", (v) => { pdfFiltroMarca = v; });
+  document.getElementById("pdfEntreguesInput").onchange = (e) => { pdfIncluirEntregues = e.target.checked; };
+  document.getElementById("cancelPdfBtn").onclick = () => root.innerHTML = "";
+  overlay.onclick = (e) => { if(e.target === overlay) root.innerHTML = ""; };
+  document.getElementById("gerarPdfBtn").onclick = () => {
+    root.innerHTML = "";
+    gerarPdfPorVendedora(pdfFiltroVendedora, pdfFiltroMarca, pdfIncluirEntregues);
+  };
+}
+
+function gerarPdfPorVendedora(filtroVendedora, filtroMarca, incluirEntregues){
+  filtroVendedora = filtroVendedora || "todas";
+  filtroMarca = filtroMarca || "todas";
+  incluirEntregues = !!incluirEntregues;
+
+  const grupos = {};
+  ORDERS.forEach(ordem => {
+    const a = analisarOrdem(ordem);
+    if(!a.temProblemaReal) return;
+    const vend = (ordem.vendedora || "-").trim() || "-";
+    if(filtroVendedora !== "todas" && vend !== filtroVendedora) return;
+
+    let pendentesFiltrados = a.pendentes;
+    if(filtroMarca !== "todas"){
+      pendentesFiltrados = a.pendentes.filter(it => (it.marca || "").trim() === filtroMarca);
+      if(pendentesFiltrados.length === 0) return;
+    }
+
+    const rid = recordId(ordem);
+    const div = DIVERGENCIAS[rid] || null;
+    if(!grupos[vend]) grupos[vend] = [];
+    grupos[vend].push({ ordem, a, div, pendentesFiltrados });
+  });
+
+  const vendedoras = Object.keys(grupos).sort((a,b) => a.localeCompare(b));
+
+  if(vendedoras.length === 0){
+    toast("Nenhuma ordem encontrada com esses filtros");
+    return;
+  }
+
+  let html = `
+  <html><head><meta charset="utf-8"><title>Relatório de divergências</title>
+  <style>
+    body{ font-family: Arial, sans-serif; color:#1B2430; margin:24px; }
+    h1{ font-size:20px; margin-bottom:4px; }
+    .data-geracao{ font-size:12px; color:#666; margin-bottom:24px; }
+    .vendedora-header{
+      background:#0F5257; color:#fff; font-size:15px; font-weight:bold;
+      padding:8px 12px; margin-top:28px; border-radius:4px;
+    }
+    .ordem-block{ margin:14px 0; page-break-inside: avoid; border:1px solid #ddd; border-radius:6px; overflow:hidden; }
+    .ordem-header{
+      background:#EEF1F3; padding:8px 12px; font-size:13px; font-weight:bold;
+      display:flex; justify-content:space-between;
+    }
+    .ordem-header .resumo{ font-weight:normal; color:#444; }
+    .item-row{ display:flex; gap:10px; padding:8px 12px; border-top:1px solid #eee; align-items:flex-start; }
+    .item-row.entregue{ opacity:.6; }
+    .item-foto{ width:50px; height:50px; object-fit:cover; border-radius:4px; background:#eee; flex-shrink:0; }
+    .item-foto-vazia{ width:50px; height:50px; border-radius:4px; background:#eee; flex-shrink:0;
+      display:flex; align-items:center; justify-content:center; font-size:8px; color:#999; text-align:center; }
+    .item-info{ font-size:12px; }
+    .item-nome{ font-weight:bold; font-size:12.5px; }
+    .item-meta{ color:#666; margin-top:1px; }
+    .item-problema{ margin-top:3px; }
+    .tag{ display:inline-block; font-size:10.5px; font-weight:bold; padding:2px 7px; border-radius:10px; margin-right:4px; margin-top:3px; }
+    .tag-status{ background:#E4F0F0; color:#0F5257; }
+    .tag-verificado{ background:#D9F2E3; color:#157F3D; }
+    .tag-semacesso{ background:#FCF0DD; color:#B5680B; }
+    .tag-resultado{ background:#F0F0F0; color:#333; }
+    .tag-entregue{ background:#EBEDEF; color:#666; }
+    @media print { .vendedora-header{ page-break-before: auto; } }
+  </style></head><body>
+  <h1>Relatório de divergências por vendedora</h1>
+  <div class="data-geracao">Gerado em ${hojeStr()}</div>
+  `;
+
+  vendedoras.forEach(vend => {
+    html += `<div class="vendedora-header">👤 ${vend}</div>`;
+    grupos[vend].forEach(({ ordem, a, div, pendentesFiltrados }) => {
+      const entregues = a.total - a.pendentes.length;
+      const statusLabel = { atencao:"Atenção", aguardando:"Aguardando retorno", resolvido:"Resolvido" }[estadoAtencao(div)];
+      const tipoProblema = div && div.tipoProblema ? div.tipoProblema : "a confirmar";
+
+      html += `<div class="ordem-block">
+        <div class="ordem-header">
+          <span>Ordem ${ordem.ordem} — ${lojaDe(ordem)} (${ordem.origem})</span>
+          <span class="resumo">Total: ${a.total} · Entregues: ${entregues} · Faltando: ${a.pendentes.length}</span>
+        </div>`;
+
+      const itensParaExibir = (() => {
+        let lista = incluirEntregues ? a.itens : a.pendentes;
+        if(filtroMarca !== "todas") lista = lista.filter(it => (it.marca || "").trim() === filtroMarca);
+        return lista;
+      })();
+
+      itensParaExibir.forEach((it) => {
+        const entregue = itemEntregue(it);
+        const resolvido = resolverFoto(it.foto, FOTO_MAP_USA, FOTO_MAP_BR);
+        const fotoValida = resolvido && /^https?:\/\//.test(resolvido) && !/\/d\/[a-zA-Z0-9_-]+\.[a-zA-Z0-9]+(?:=|$)/.test(resolvido);
+        const fotoHtml = fotoValida
+          ? `<img class="item-foto" src="${resolvido}">`
+          : `<div class="item-foto-vazia">sem foto</div>`;
+
+        if(entregue){
+          html += `<div class="item-row entregue">
+            ${fotoHtml}
+            <div class="item-info">
+              <div class="item-nome">${it.item || "Item sem nome"}</div>
+              <div class="item-meta">${[it.marca, it.cor, it.tam].filter(Boolean).join(" · ") || "-"}</div>
+              <div class="item-meta">Comprado em ${it.dataCompra || "-"} · Chegada prevista ${it.dataChegada || "-"}</div>
+              <div class="item-problema"><span class="tag tag-entregue">Entregue</span></div>
+            </div>
+          </div>`;
+          return;
+        }
+
+        const itemOriginalIndex = a.itens.indexOf(it);
+        const resultado = (div && div.itensResultado && div.itensResultado[itemOriginalIndex]) || {};
+        const resultadosMarcados = [];
+        if(resultado.recomprado) resultadosMarcados.push("Recomprado");
+        if(resultado.reembolso) resultadosMarcados.push("Reembolso");
+        if(resultado.naoRessarcido) resultadosMarcados.push("Não ressarcido");
+        if(resultado.itemEsgotado) resultadosMarcados.push("NOK");
+
+        html += `<div class="item-row">
+          ${fotoHtml}
+          <div class="item-info">
+            <div class="item-nome">${it.item || "Item sem nome"}</div>
+            <div class="item-meta">${[it.marca, it.cor, it.tam].filter(Boolean).join(" · ") || "-"}</div>
+            <div class="item-meta">Comprado em ${it.dataCompra || "-"} · Chegada prevista ${it.dataChegada || "-"}</div>
+            <div class="item-problema">
+              <span class="tag tag-status">${statusLabel}</span>
+              <span class="tag tag-resultado">${tipoProblema}</span>
+              ${div && div.verificadoSite ? `<span class="tag tag-verificado">✅ Verificado no site como entregue</span>` : ""}
+              ${div && div.semAcessoSite ? `<span class="tag tag-semacesso">⚠️ Sem acesso ao site</span>` : ""}
+              ${resultadosMarcados.map(r => `<span class="tag tag-resultado">${r}</span>`).join("")}
+            </div>
+          </div>
+        </div>`;
+      });
+
+      html += `</div>`;
+    });
+  });
+
+  html += `</body></html>`;
+
+  const win = window.open("", "_blank");
+  if(!win){
+    toast("O navegador bloqueou a janela — permita pop-ups pra gerar o PDF");
+    return;
+  }
+  win.document.open();
+  win.document.write(html);
+  win.document.close();
+
+  // espera as fotos carregarem antes de abrir a impressão
+  const imgs = win.document.querySelectorAll("img");
+  if(imgs.length === 0){
+    win.print();
+  } else {
+    let carregadas = 0;
+    const total = imgs.length;
+    const tentarImprimir = () => { carregadas++; if(carregadas >= total) setTimeout(() => win.print(), 300); };
+    imgs.forEach(img => {
+      if(img.complete) tentarImprimir();
+      else { img.onload = tentarImprimir; img.onerror = tentarImprimir; }
+    });
+    // segurança: imprime de qualquer jeito depois de um tempo, mesmo se alguma foto travar
+    setTimeout(() => win.print(), 4000);
+  }
+}
+
+/* ---------- Sincronização com a planilha de relatório ---------- */
+const RELATORIO_SYNC_URL = "https://script.google.com/macros/s/AKfycbxB8EEh9Xzmlrr5oSyArnS0z4AskAQY5tCaK7kE7ooAeg5s2dnxsacKU665Vtp_vos9dw/exec";
+
+async function sincronizarRelatorio(btn){
+  const textoOriginal = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = "Sincronizando…";
+  try{
+    await fetch(RELATORIO_SYNC_URL, { mode: "no-cors" });
+    toast("Relatório sincronizado");
+  }catch(e){
+    console.error(e);
+    toast("Não foi possível sincronizar — tente de novo");
+  }finally{
+    btn.disabled = false;
+    btn.textContent = textoOriginal;
+  }
+}
+
+// versão silenciosa, disparada automaticamente ao marcar/desmarcar opções (sem precisar de botão)
+async function sincronizarRelatorioSilencioso(){
+  try{
+    await fetch(RELATORIO_SYNC_URL, { mode: "no-cors" });
+  }catch(e){
+    console.error("Falha ao sincronizar planilha automaticamente", e);
+  }
+}
+
+/* ---------- Firebase (mesmo banco do app ir-atras) ---------- */
+const firebaseConfig = {
+  apiKey: "AIzaSyCy6NWVuvC1nVsX5fV53b9DpmKqFzwI2tc",
+  authDomain: "ir-atras.firebaseapp.com",
+  projectId: "ir-atras",
+  storageBucket: "ir-atras.firebasestorage.app",
+  messagingSenderId: "427877333576",
+  appId: "1:427877333576:web:981459abeaad210fa5b67d"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+const auth = firebase.auth();
+
+/* ---------- Constantes ---------- */
+const TOLERANCIA_DIAS = 1;       // dias após a compra antes de virar candidata
+const PRAZO_REPORTAR_HORAS = 24; // alerta se identificado e ainda pendente
+const PRAZO_TOTAL_DIAS = 3;      // prazo total pra reportar à loja
+
+const TIPOS_PROBLEMA = [
+  "Item faltando",
+  "Item não entregue",
+  "Produto errado",
+  "Tamanho ou cor errada",
+  "Entregue mas não localizada",
+  "Atrasada sem atualização"
+];
+
+const DIVERGENCIAS_COLLECTION = "divergencias_lojas";
+
+/* ---------- Estado ---------- */
+let ORDERS = [];        // ordens normalizadas vindas do ir-atras
+let DIVERGENCIAS = {};  // keyed by recordId -> registro manual
+let filtro = { texto: "", origem: "todas", status: "todos", ordenacao: "mais_tempo", vendedora: "todas" };
+let EXPANDIDAS = new Set(); // rids das ordens abertas no momento
+let ATENCAO_EXPANDIDAS = new Set(); // rids expandidos na aba Relatório (Ordens que precisam de atenção)
+let FOTO_MAP_USA = {};
+let FOTO_MAP_BR = {};
+let ULTIMA_ATUALIZACAO = null;
+let VIEW_ATUAL = "relatorio"; // "ordens" | "relatorio"
+let ATENCAO_SUBVIEW = "atencao"; // "atencao" | "aguardando" | "resolvido"
+let ATENCAO_FILTRO_VENDEDORA = "todas";
+let ATENCAO_FILTRO_LOJA = "todas";
+
+/* ---------- Resolução de fotos (mesma lógica do ir-atras) ---------- */
+async function carregarMapaFotos(fbDoc) {
+  const metaDoc = await db.collection('config').doc(fbDoc).get();
+  if (!metaDoc.exists) return {};
+  const data = metaDoc.data();
+  if (data.totalChunks) {
+    const promessas = [];
+    for (let i = 0; i < data.totalChunks; i++) {
+      promessas.push(db.collection('config').doc(fbDoc + '_chunk' + i).get());
+    }
+    const docs = await Promise.all(promessas);
+    let mapaCompleto = {};
+    docs.forEach(d => { if (d.exists && d.data().map) Object.assign(mapaCompleto, JSON.parse(d.data().map)); });
+    return mapaCompleto;
+  } else if (data.map) {
+    return JSON.parse(data.map);
+  }
+  return {};
+}
+
+function resolverFoto(raw, fotoMapUSA, fotoMapBR) {
+  if (!raw) return '';
+  const s = String(raw).trim();
+  if (!s) return '';
+  const maps = [fotoMapUSA || {}, fotoMapBR || {}];
+  const buscarNoMapa = (nome) => {
+    const semExt = nome.replace(/\.[^/.]+$/, '');
+    for (const fotoMap of maps) {
+      if (fotoMap[nome]) return fotoMap[nome];
+      if (fotoMap[nome.toLowerCase()]) return fotoMap[nome.toLowerCase()];
+      if (fotoMap[semExt]) return fotoMap[semExt];
+      if (fotoMap[semExt.toLowerCase()]) return fotoMap[semExt.toLowerCase()];
+    }
+    return null;
+  };
+  if (s.startsWith('http')) {
+    const mIdBruto = s.match(/(?:drive\.google\.com\/(?:file\/d\/|open\?id=|(?:uc|thumbnail)\?(?:export=view&)?id=)|lh3\.googleusercontent\.com\/d\/)([a-zA-Z0-9_.-]+)/);
+    if (mIdBruto) {
+      const achado = buscarNoMapa(mIdBruto[1]);
+      if (achado) return achado;
+    }
+    return s;
+  }
+  const achado = buscarNoMapa(s);
+  if (achado) return achado;
+  return s.length > 10 ? `https://lh3.googleusercontent.com/d/${s}=w1000` : '';
+}
+
+/* ---------- Dropdown customizado (substitui <select> nativo) ---------- */
+function criarSelectCustomHTML(id, opcoes, valorAtual){
+  const atual = opcoes.find(o => o.value === valorAtual) || opcoes[0] || {label:""};
+  return `
+    <div class="csel" id="${id}">
+      <button type="button" class="csel-btn">${atual.label} <span class="csel-arrow">▾</span></button>
+      <div class="csel-list" hidden>
+        ${opcoes.map(o => `<div class="csel-opt${o.value===valorAtual?' selecionado':''}" data-value="${(o.value+"").replace(/"/g,'&quot;')}">${o.label}</div>`).join("")}
+      </div>
+    </div>
+  `;
+}
+function ativarSelectCustom(id, onSelect){
+  const root = document.getElementById(id);
+  if(!root) return;
+  const btn = root.querySelector(".csel-btn");
+  const list = root.querySelector(".csel-list");
+  btn.onclick = (e) => {
+    e.stopPropagation();
+    document.querySelectorAll(".csel-list").forEach(l => { if(l !== list) l.hidden = true; });
+    list.hidden = !list.hidden;
+  };
+  root.querySelectorAll(".csel-opt").forEach(opt => {
+    opt.onclick = (e) => {
+      e.stopPropagation();
+      list.hidden = true;
+      onSelect(opt.getAttribute("data-value"));
+    };
+  });
+}
+document.addEventListener("click", () => {
+  document.querySelectorAll(".csel-list").forEach(l => { l.hidden = true; });
+});
+
+/* ---------- Utilitários de data ---------- */
+function parseDataBR(str){
+  if(!str) return null;
+  const parts = String(str).trim().split("/");
+  if(parts.length < 2) return null;
+  let [d, m, y] = parts;
+  d = parseInt(d,10); m = parseInt(m,10);
+  y = y ? parseInt(y,10) : new Date().getFullYear();
+  if(y < 100) y += 2000;
+  const dt = new Date(y, m-1, d);
+  if(isNaN(dt.getTime())) return null;
+  return dt;
+}
+function hojeStr(){
+  return new Date().toLocaleDateString("pt-BR");
+}
+function diasEntre(dataInicio, dataFim){
+  const msPorDia = 1000*60*60*24;
+  const a = new Date(dataInicio.getFullYear(), dataInicio.getMonth(), dataInicio.getDate());
+  const b = new Date(dataFim.getFullYear(), dataFim.getMonth(), dataFim.getDate());
+  return Math.round((b - a) / msPorDia);
+}
+function horasDesde(dataHoraISO){
+  const then = new Date(dataHoraISO);
+  return (Date.now() - then.getTime()) / (1000*60*60);
+}
+function addDiasUteis(data, dias){
+  const d = new Date(data);
+  let adicionados = 0;
+  while(adicionados < dias){
+    d.setDate(d.getDate() + 1);
+    const diaSemana = d.getDay(); // 0=domingo, 6=sábado
+    if(diaSemana !== 0 && diaSemana !== 6) adicionados++;
+  }
+  return d;
+}
+function formatarDataComDia(data){
+  const txt = data.toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "2-digit" });
+  return txt.charAt(0).toUpperCase() + txt.slice(1);
+}
+
+/* ---------- Carregar ordens do Firebase (ir-atras) ---------- */
+async function carregarOrdens(){
+  const origens = [
+    { doc: "ordens_online_usa", origem: "USA", fonte: "vendas" },
+    { doc: "ordens_online_br",  origem: "BR",  fonte: "vendas" },
+    { doc: "sobras_online_usa", origem: "USA", fonte: "sobras" },
+    { doc: "sobras_online_br",  origem: "BR",  fonte: "sobras" }
+  ];
+  let todas = [];
+  for(const o of origens){
+    try{
+      const snap = await db.collection("config").doc(o.doc).get();
+      if(!snap.exists) continue;
+      const raw = snap.data().dados;
+      if(!raw) continue;
+      const lista = typeof raw === "string" ? JSON.parse(raw) : raw;
+      lista.forEach(ordem => {
+        todas.push({ ...ordem, origem: o.origem, fonte: o.fonte });
+      });
+    }catch(e){
+      console.error("Erro lendo", o.doc, e);
+    }
+  }
+  return todas;
+}
+
+/* ---------- Carregar registros manuais de divergência ---------- */
+async function carregarDivergencias(){
+  const snap = await db.collection(DIVERGENCIAS_COLLECTION).get();
+  const out = {};
+  snap.forEach(doc => { out[doc.id] = { id: doc.id, ...doc.data() }; });
+  return out;
+}
+
+function recordId(ordem){
+  return `${ordem.origem}_${ordem.ordem}`;
+}
+
+// estado do fluxo novo: "atencao" (ainda não mostrado à vendedora) | "aguardando" (mostrado, esperando retorno) | "resolvido" (retorno recebido)
+function estadoAtencao(divergencia){
+  if(divergencia && divergencia.atencaoResolvido) return "resolvido";
+  if(divergencia && divergencia.atencaoMostrado) return "aguardando";
+  return "atencao";
+}
+
+function lojaDe(ordem){
+  if(ordem.loja && String(ordem.loja).trim()) return String(ordem.loja).trim();
+  const itens = Array.isArray(ordem.itens) ? ordem.itens : [];
+  const comLoja = itens.find(it => it.loja && String(it.loja).trim());
+  return comLoja ? String(comLoja.loja).trim() : "Loja não informada";
+}
+
+/* ---------- Analisar uma ordem: itens pendentes, dias, candidata? ---------- */
+function itemCancelado(it){
+  return (it.status || "").toUpperCase().trim() === "CANCELADO";
+}
+
+function itemEntregue(it){
+  const conf = (it.conf || "").toLowerCase().trim();
+  const status = (it.status || "").toUpperCase().trim();
+  return conf === "ok" || status === "ENTREGUE";
+}
+
+function itemCategoria(it){
+  // mostra o campo de status bruto do item sempre que existir, com cor especial pra SOBRAS
+  const status = (it.status || "").trim();
+  if(!status) return null;
+  const statusUpper = status.toUpperCase();
+  return { texto: status, cor: statusUpper === "SOBRAS" ? "#9333ea" : "#64748b" };
+}
+
+function analisarOrdem(ordem){
+  const itens = (Array.isArray(ordem.itens) ? ordem.itens : []).filter(it => !itemCancelado(it));
+  const pendentes = itens.filter(it => !itemEntregue(it));
+  const total = itens.length;
+  const entreguesCount = total - pendentes.length;
+  // só é considerado "problema real" quando existe uma MISTURA: pelo menos 1 entregue e pelo menos 1 pendente.
+  // se nada chegou ainda, é apenas "aguardando entrega" normal, não uma divergência.
+  const temProblemaReal = pendentes.length > 0 && entreguesCount > 0;
+
+  // referência de atraso: data de chegada PREVISTA dos itens ainda pendentes
+  const basePara = pendentes.length ? pendentes : itens;
+  const datasChegada = basePara.map(it => parseDataBR(it.dataChegada)).filter(Boolean);
+  const dataChegadaMin = datasChegada.length ? new Date(Math.min(...datasChegada.map(d=>d.getTime()))) : null;
+  const diasAtraso = dataChegadaMin ? diasEntre(dataChegadaMin, new Date()) : null; // >0 = atrasado, <=0 = dentro do prazo
+
+  // mantido como referência secundária (usado só se não houver data de chegada)
+  const datasCompra = basePara.map(it => parseDataBR(it.dataCompra)).filter(Boolean);
+  const dataCompraMin = datasCompra.length ? new Date(Math.min(...datasCompra.map(d=>d.getTime()))) : null;
+  const diasDesdeCompra = dataCompraMin ? diasEntre(dataCompraMin, new Date()) : null;
+
+  // conta como problema desde que tenha mistura de entregue/faltando — não depende mais de dias de atraso
+  const candidata = temProblemaReal;
+
+  return { itens, pendentes, total, dataCompraMin, diasDesdeCompra, dataChegadaMin, diasAtraso, candidata, temProblemaReal };
+}
+
+/* ---------- Render ---------- */
+function el(tag, cls, html){
+  const e = document.createElement(tag);
+  if(cls) e.className = cls;
+  if(html !== undefined) e.innerHTML = html;
+  return e;
+}
+
+function badgeOrigem(origem){
+  return `<span class="badge ${origem==='USA'?'badge-usa':'badge-br'}">${origem}</span>`;
+}
+
+function renderSummary(grupos){
+  const strip = document.getElementById("summaryStrip");
+  strip.innerHTML = "";
+  const pill = el("div","summary-pill" + (filtro.status==="atencao" ? " active" : ""),`<b>${grupos.atencao.length}</b> Atenção`);
+  pill.onclick = () => {
+    filtro.status = (filtro.status === "atencao") ? "todos" : "atencao";
+    renderApp();
+  };
+  strip.appendChild(pill);
+}
+
+function montarMensagemAlerta(ordem, divergencia){
+  const a = analisarOrdem(ordem);
+  const itensAtrasados = a.pendentes.filter(it => {
+    const dc = parseDataBR(it.dataChegada);
+    if(!dc) return true;
+    return diasEntre(dc, new Date()) > 0;
+  });
+  const itensTxt = itensAtrasados.map(it => `- ${it.item || "item"}`).join("\n") || "- (ver detalhes na ordem)";
+  const tipo = divergencia && divergencia.tipoProblema ? divergencia.tipoProblema : "a confirmar";
+  const dataCompraTxt = a.dataCompraMin ? a.dataCompraMin.toLocaleDateString("pt-BR") : "-";
+  const dataChegadaTxt = a.dataChegadaMin ? a.dataChegadaMin.toLocaleDateString("pt-BR") : "-";
+  const atrasoTxt = (a.diasAtraso !== null && a.diasAtraso > 0) ? `${a.diasAtraso} dia${a.diasAtraso===1?"":"s"}` : "dentro do prazo";
+  const prazoTxt = a.dataChegadaMin
+    ? formatarDataComDia(addDiasUteis(a.dataChegadaMin, PRAZO_TOTAL_DIAS))
+    : `${PRAZO_TOTAL_DIAS} dias úteis a partir da entrega`;
+  const verificadoLinha = (divergencia && divergencia.verificadoSite)
+    ? `\n✅ Verificado no site como entregue`
+    : "";
+  const semAcessoLinha = (divergencia && divergencia.semAcessoSite)
+    ? `\n⚠️ Sem acesso ao site`
+    : "";
+  return `⚠️ DIVERGÊNCIA — ORDEM ${ordem.ordem} (${ordem.origem})\n`+
+    `Loja: ${lojaDe(ordem)}\n`+
+    `Vendedora: ${ordem.vendedora || "-"}\n`+
+    `Data de compra: ${dataCompraTxt}\n`+
+    `Data de entrega prevista: ${dataChegadaTxt}\n`+
+    `Dias de atraso: ${atrasoTxt}${verificadoLinha}${semAcessoLinha}\n`+
+    `Divergência: ${tipo}\n`+
+    `Itens atrasados:\n${itensTxt}\n`+
+    `Identificado em: ${divergencia && divergencia.dataIdentificado ? divergencia.dataIdentificado : hojeStr()}\n`+
+    `Prazo final para reportar: ${prazoTxt}`;
+}
+
+async function copiarAlerta(ordem, divergencia){
+  const msg = montarMensagemAlerta(ordem, divergencia);
+  try{
+    await navigator.clipboard.writeText(msg);
+    toast("Mensagem copiada — cole no ALERTA ORDENS");
+  }catch(e){
+    prompt("Copie a mensagem abaixo:", msg);
+  }
+}
+
+async function copiarAlertaComoImagem(ordem, divergencia, btn){
+  const textoOriginal = btn ? btn.textContent : null;
+  if(btn){ btn.disabled = true; btn.textContent = "Gerando…"; }
+
+  const a = analisarOrdem(ordem);
+  const itensAtrasados = a.pendentes.filter(it => {
+    const dc = parseDataBR(it.dataChegada);
+    if(!dc) return true;
+    return diasEntre(dc, new Date()) > 0;
+  });
+  const tipo = divergencia && divergencia.tipoProblema ? divergencia.tipoProblema : "a confirmar";
+  const dataChegadaTxt = a.dataChegadaMin ? a.dataChegadaMin.toLocaleDateString("pt-BR") : "-";
+  const atrasoTxt = (a.diasAtraso !== null && a.diasAtraso > 0) ? `${a.diasAtraso} dias de atraso` : "dentro do prazo";
+
+  const container = document.createElement("div");
+  container.style.cssText = "position:fixed; left:-9999px; top:0; width:480px; background:#fff; font-family:Arial,sans-serif; padding:20px; border-radius:12px;";
+  container.innerHTML = `
+    <div style="background:#0F5257; color:#fff; padding:12px 16px; border-radius:10px; margin-bottom:14px; display:flex; justify-content:space-between; align-items:center; gap:10px;">
+      <div style="font-weight:bold; font-size:15px;">⚠️ Ordem ${ordem.ordem} — ${lojaDe(ordem)} (${ordem.origem})</div>
+      <div style="font-size:16px; font-weight:bold; background:rgba(255,255,255,.22); white-space:nowrap; padding:5px 14px; border-radius:999px;">👤 ${ordem.vendedora || "-"}</div>
+    </div>
+    <div style="font-size:13px; color:#333; line-height:1.6; margin-bottom:12px;">
+      <b>Itens:</b> ${a.total - a.pendentes.length} de ${a.total} itens entregues, faltando ${a.pendentes.length}<br>
+      <b>Chegada prevista:</b> ${dataChegadaTxt}<br>
+      <b>Atraso:</b> ${atrasoTxt}
+      ${divergencia && divergencia.verificadoSite ? `<br><span style="color:#157F3D; font-weight:bold;">✅ Ordem verificada no site como entregue</span>` : ""}
+      ${divergencia && divergencia.semAcessoSite ? `<br><span style="color:#B5680B; font-weight:bold;">⚠️ Sem acesso ao site</span>` : ""}
+    </div>
+  `;
+  const itensBox = document.createElement("div");
+  itensAtrasados.forEach(it => {
+    const row = document.createElement("div");
+    row.style.cssText = "display:flex; gap:10px; align-items:center; padding:8px; background:#FBE1E1; border-radius:8px; margin-bottom:6px;";
+    const resolvido = resolverFoto(it.foto, FOTO_MAP_USA, FOTO_MAP_BR);
+    const fotoValida = resolvido && /^https?:\/\//.test(resolvido) && !/\/d\/[a-zA-Z0-9_-]+\.[a-zA-Z0-9]+(?:=|$)/.test(resolvido);
+    row.innerHTML = `
+      ${fotoValida ? `<img src="${resolvido}" crossorigin="anonymous" style="width:46px; height:46px; object-fit:cover; border-radius:6px; background:#eee; flex-shrink:0;">` : `<div style="width:46px; height:46px; border-radius:6px; background:#eee; flex-shrink:0;"></div>`}
+      <div style="font-size:12.5px; color:#333;">
+        <b>${it.item || "item"}</b><br>
+        <span style="color:#666;">Comprado em ${it.dataCompra || "-"} · Chegada ${it.dataChegada || "-"}</span>
+      </div>
+    `;
+    itensBox.appendChild(row);
+  });
+  container.appendChild(itensBox);
+  document.body.appendChild(container);
+
+  try{
+    const canvas = await html2canvas(container, { backgroundColor: "#ffffff", scale: 2, useCORS: true });
+    canvas.toBlob(async (blob) => {
+      try{
+        await navigator.clipboard.write([ new ClipboardItem({ "image/png": blob }) ]);
+        toast("Imagem copiada — cole direto no WhatsApp");
+      }catch(err){
+        console.error(err);
+        toast("Não foi possível copiar a imagem nesse navegador");
+      }finally{
+        document.body.removeChild(container);
+        if(btn){ btn.disabled = false; btn.textContent = textoOriginal; }
+      }
+    }, "image/png");
+  }catch(e){
+    console.error(e);
+    document.body.removeChild(container);
+    toast("Erro ao gerar a imagem — tente de novo");
+    if(btn){ btn.disabled = false; btn.textContent = textoOriginal; }
+  }
+}
+
+function toast(msg){
+  const root = document.getElementById("toastRoot");
+  root.innerHTML = "";
+  const t = el("div","toast",msg);
+  root.appendChild(t);
+  setTimeout(()=>{ t.remove(); }, 2800);
+}
+
+const RESULTADOS_ITEM = [
+  { key: "recomprado", label: "Recomprado" },
+  { key: "reembolso", label: "Reembolso" },
+  { key: "naoRessarcido", label: "Não ressarcido" },
+  { key: "itemEsgotado", label: "NOK" }
+];
+
+async function toggleItemResultado(ordem, divergencia, rid, itemIndex, campo, valor){
+  const a = analisarOrdem(ordem);
+  const itemDados = a.itens[itemIndex] || {};
+  const base = divergencia ? { ...divergencia } : {
+    ordem: ordem.ordem,
+    origem: ordem.origem,
+    loja: lojaDe(ordem),
+    vendedora: ordem.vendedora || "",
+    tipoProblema: null,
+    dataIdentificado: hojeStr(),
+    dataIdentificadoISO: new Date().toISOString(),
+    status: "pendente",
+    obs: ""
+  };
+  const itensResultado = { ...(base.itensResultado || {}) };
+  itensResultado[itemIndex] = {
+    ...(itensResultado[itemIndex] || {}),
+    [campo]: valor,
+    itemNome: itemDados.item || "",
+    marca: itemDados.marca || "",
+    cor: itemDados.cor || "",
+    tam: itemDados.tam || ""
+  };
+  base.itensResultado = itensResultado;
+  try{
+    await db.collection(DIVERGENCIAS_COLLECTION).doc(rid).set(base, { merge: true });
+    DIVERGENCIAS[rid] = { id: rid, ...base };
+    renderApp();
+    sincronizarRelatorioSilencioso();
+  }catch(e){
+    console.error(e);
+    toast("Erro ao salvar — tente de novo");
+  }
+}
+
+function itemFotoEl(it){
+  const resolvido = resolverFoto(it.foto, FOTO_MAP_USA, FOTO_MAP_BR);
+  // detecta link ainda quebrado: no lugar do ID do Drive, sobrou um nome de arquivo cru
+  // (IDs de Drive não têm ponto/extensão; nomes de arquivo tipo "xxxx-xxxx.jpg" têm)
+  const aindaQuebrado = resolvido && /\/d\/[a-zA-Z0-9_-]+\.[a-zA-Z0-9]+(?:=|$)/.test(resolvido);
+
+  if(resolvido && /^https?:\/\//.test(resolvido) && !aindaQuebrado){
+    let urlCorrigida = resolvido;
+    try{ urlCorrigida = encodeURI(decodeURI(resolvido)); }catch(e){ urlCorrigida = encodeURI(resolvido); }
+    const holder = el("div");
+    holder.style.position = "relative";
+    const link = document.createElement("a");
+    link.href = urlCorrigida;
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    link.className = "item-photo-link";
+    link.title = "Abrir foto em nova aba";
+    const img = document.createElement("img");
+    img.className = "item-photo";
+    img.src = urlCorrigida;
+    img.alt = it.item || "item";
+    img.onerror = () => {
+      link.innerHTML = "";
+      const ph = el("div","item-photo-placeholder","abrir link ↗");
+      link.appendChild(ph);
+    };
+    link.appendChild(img);
+    holder.appendChild(link);
+
+    const copyBtn = el("button","copy-ordem-btn","🔗");
+    copyBtn.title = "Copiar link da foto";
+    copyBtn.style.cssText = "position:absolute; bottom:-4px; right:-4px; background:#fff; border:1px solid var(--panel-border); font-size:10px; padding:1px 3px;";
+    copyBtn.onclick = async (e) => {
+      e.preventDefault(); e.stopPropagation();
+      try{
+        await navigator.clipboard.writeText(urlCorrigida);
+        toast("Link da foto copiado");
+      }catch(err){
+        prompt("Copie o link da foto:", urlCorrigida);
+      }
+    };
+    holder.appendChild(copyBtn);
+    return holder;
+  }
+  if(it.foto && String(it.foto).trim()){
+    // não conseguimos resolver esse valor pra um link válido (nem no mapa de fotos) —
+    // é uma foto sem correspondência recuperável nos dados
+    return el("div","item-photo-placeholder","sem foto");
+  }
+  return el("div","item-photo-placeholder","sem foto");
+}
+
+// versão usada na aba Relatório: mostra só os itens com problema (não os já entregues)
+function renderItemListSomentePendentes(ordem, divergencia, rid){
+  const a = analisarOrdem(ordem);
+  const wrap = el("div","item-list");
+  if(a.pendentes.length === 0){
+    wrap.appendChild(el("div","card-items","Nenhum item com problema nessa ordem."));
+    return wrap;
+  }
+  a.itens.forEach((it, idx) => {
+    if(itemEntregue(it)) return; // só os que faltam
+    const isFaltandoReal = a.temProblemaReal;
+    const row = el("div","item-row" + (isFaltandoReal ? " faltando" : " aguardando"));
+    row.appendChild(itemFotoEl(it));
+    const info = el("div","item-info");
+    info.innerHTML = `<div class="item-name">${it.item || "Item sem nome"}</div>` +
+      `<div class="item-meta">${[it.marca, it.cor, it.tam].filter(Boolean).join(" · ") || "-"}` +
+      `${it.dataCompra ? " · comprado em " + it.dataCompra : ""}` +
+      `${it.dataChegada ? " · chegada: " + it.dataChegada : ""}</div>`;
+    row.appendChild(info);
+
+    const categoria = itemCategoria(it);
+    if(categoria){
+      const catTag = el("span", null, categoria.texto);
+      catTag.style.cssText = `font-size:11px; font-weight:700; padding:2px 8px; border-radius:999px; margin-left:4px; background:${categoria.cor}22; color:${categoria.cor};`;
+      info.querySelector(".item-name").appendChild(catTag);
+    }
+    if(ordem.fonte === "sobras"){
+      const sobrasTag = el("span", null, "SOBRAS");
+      sobrasTag.style.cssText = `font-size:11px; font-weight:700; padding:2px 8px; border-radius:999px; margin-left:4px; background:#F3E8FF; color:#9333ea;`;
+      info.querySelector(".item-name").appendChild(sobrasTag);
+    }
+
+    if(isFaltandoReal){
+      const resultadoAtual = (divergencia && divergencia.itensResultado && divergencia.itensResultado[idx]) || {};
+      const outcomes = el("div","item-outcomes");
+      RESULTADOS_ITEM.forEach(opt => {
+        const marcado = !!resultadoAtual[opt.key];
+        const lbl = el("label","item-outcome-check" + (marcado ? " checked" : ""));
+        lbl.innerHTML = `<input type="checkbox" ${marcado ? "checked" : ""}> ${opt.label}`;
+        lbl.onclick = (e) => e.stopPropagation();
+        lbl.querySelector("input").onchange = (e) => toggleItemResultado(ordem, divergencia, rid, idx, opt.key, e.target.checked);
+        outcomes.appendChild(lbl);
+      });
+      info.appendChild(outcomes);
+    }
+
+    row.appendChild(el("span", "item-status " + (isFaltandoReal ? "pendente" : "aguardando"), isFaltandoReal ? "Faltando" : "Aguardando entrega"));
+    wrap.appendChild(row);
+  });
+  return wrap;
+}
+
+function renderItemList(ordem, divergencia, rid){
+  const a = analisarOrdem(ordem);
+  const wrap = el("div","item-list");
+  if(a.itens.length === 0){
+    wrap.appendChild(el("div","card-items","Nenhum item registrado nessa ordem."));
+    return wrap;
+  }
+  a.itens.forEach((it, idx) => {
+    const entregue = itemEntregue(it);
+    const isFaltandoReal = !entregue && a.temProblemaReal;
+    const rowCls = entregue ? "" : (isFaltandoReal ? " faltando" : " aguardando");
+    const row = el("div","item-row" + rowCls);
+    row.appendChild(itemFotoEl(it));
+    const info = el("div","item-info");
+    info.innerHTML = `<div class="item-name">${it.item || "Item sem nome"}</div>` +
+      `<div class="item-meta">${[it.marca, it.cor, it.tam].filter(Boolean).join(" · ") || "-"}` +
+      `${it.dataCompra ? " · comprado em " + it.dataCompra : ""}` +
+      `${it.dataChegada ? " · chegada: " + it.dataChegada : ""}</div>`;
+    row.appendChild(info);
+
+    const categoria = itemCategoria(it);
+    if(categoria){
+      const catTag = el("span", null, categoria.texto);
+      catTag.style.cssText = `font-size:11px; font-weight:700; padding:2px 8px; border-radius:999px; margin-left:4px; background:${categoria.cor}22; color:${categoria.cor};`;
+      info.querySelector(".item-name").appendChild(catTag);
+    }
+
+    if(ordem.fonte === "sobras"){
+      const sobrasTag = el("span", null, "SOBRAS");
+      sobrasTag.style.cssText = `font-size:11px; font-weight:700; padding:2px 8px; border-radius:999px; margin-left:4px; background:#F3E8FF; color:#9333ea;`;
+      info.querySelector(".item-name").appendChild(sobrasTag);
+    }
+
+    if(isFaltandoReal){
+      const resultadoAtual = (divergencia && divergencia.itensResultado && divergencia.itensResultado[idx]) || {};
+      const outcomes = el("div","item-outcomes");
+      RESULTADOS_ITEM.forEach(opt => {
+        const marcado = !!resultadoAtual[opt.key];
+        const lbl = el("label","item-outcome-check" + (marcado ? " checked" : ""));
+        lbl.innerHTML = `<input type="checkbox" ${marcado ? "checked" : ""}> ${opt.label}`;
+        lbl.onclick = (e) => e.stopPropagation();
+        lbl.querySelector("input").onchange = (e) => toggleItemResultado(ordem, divergencia, rid, idx, opt.key, e.target.checked);
+        outcomes.appendChild(lbl);
+      });
+      info.appendChild(outcomes);
+    }
+
+    const statusCls = entregue ? "ok" : (isFaltandoReal ? "pendente" : "aguardando");
+    const statusTxt = entregue ? "Entregue" : (isFaltandoReal ? "Faltando" : "Aguardando entrega");
+    row.appendChild(el("span", "item-status " + statusCls, statusTxt));
+    wrap.appendChild(row);
+  });
+  return wrap;
+}
+
+async function toggleCampoBooleano(ordem, divergencia, rid, campo, novoValor){
+  const base = divergencia ? { ...divergencia } : {
+    ordem: ordem.ordem,
+    origem: ordem.origem,
+    loja: lojaDe(ordem),
+    vendedora: ordem.vendedora || "",
+    tipoProblema: null,
+    dataIdentificado: hojeStr(),
+    dataIdentificadoISO: new Date().toISOString(),
+    status: "pendente",
+    obs: ""
+  };
+  base[campo] = novoValor;
+  try{
+    await db.collection(DIVERGENCIAS_COLLECTION).doc(rid).set(base, { merge: true });
+    DIVERGENCIAS[rid] = { id: rid, ...base };
+    renderApp();
+  }catch(e){
+    console.error(e);
+    toast("Erro ao salvar — tente de novo");
+  }
+}
+async function toggleVerificado(ordem, divergencia, rid, novoValor){
+  return toggleCampoBooleano(ordem, divergencia, rid, "verificadoSite", novoValor);
+}
+
+function cardOrdem(ordem, divergencia, opts={}){
+  const a = analisarOrdem(ordem);
+  const rid = recordId(ordem);
+
+  // referência de urgência: para ordens já registradas usa a data de identificação manual;
+  // para candidatas automáticas ainda não registradas, usa a data de chegada prevista + tolerância
+  let referenciaISO = divergencia ? divergencia.dataIdentificadoISO : null;
+  if(!referenciaISO && a.dataChegadaMin){
+    const ref = new Date(a.dataChegadaMin);
+    ref.setDate(ref.getDate() + TOLERANCIA_DIAS);
+    referenciaISO = ref.toISOString();
+  }
+  const estado = estadoAtencao(divergencia);
+  const isUrgent = estado === "atencao" && referenciaISO && horasDesde(referenciaISO) >= PRAZO_REPORTAR_HORAS;
+  const isExpanded = EXPANDIDAS.has(rid);
+
+  let nivel = "lvl-emdia";
+  if(a.diasAtraso !== null && a.diasAtraso > 0){
+    if(isUrgent || a.diasAtraso > 5) nivel = "lvl-late";
+    else if(a.diasAtraso > 3) nivel = "lvl-warn";
+    else nivel = "lvl-ok";
+  }
+
+  const card = el("div", `card ${nivel}` + (isUrgent ? " urgent" : ""));
+  const row = el("div","card-row");
+  row.onclick = (e) => {
+    if(e.target.closest("button")) return;
+    if(EXPANDIDAS.has(rid)) EXPANDIDAS.delete(rid); else EXPANDIDAS.add(rid);
+    renderApp();
+  };
+
+  const main = el("div","card-main");
+  const top = el("div","card-top");
+  top.innerHTML = `${badgeOrigem(ordem.origem)} <span class="ordem-num mono">Ordem ${ordem.ordem}</span>` +
+    (isUrgent ? ` <span class="badge badge-urgent">+24h sem mostrar</span>` : "");
+  const copyBtn = el("button","copy-ordem-btn","📋");
+  copyBtn.title = "Copiar número da ordem";
+  copyBtn.onclick = async (e) => {
+    e.stopPropagation();
+    try{
+      await navigator.clipboard.writeText(String(ordem.ordem));
+      toast("Número da ordem copiado");
+    }catch(err){
+      prompt("Copie o número da ordem:", String(ordem.ordem));
+    }
+  };
+  top.appendChild(copyBtn);
+  main.appendChild(top);
+
+  const sub = el("div","card-sub", `${lojaDe(ordem)} · Vendedora: ${ordem.vendedora || "-"}` +
+    `${a.dataCompraMin ? " · Comprado em " + a.dataCompraMin.toLocaleDateString("pt-BR") : ""}` +
+    `${a.dataChegadaMin ? " · Chegada prevista: " + a.dataChegadaMin.toLocaleDateString("pt-BR") : ""}`);
+  main.appendChild(sub);
+
+  let itensLabel;
+  if(a.total > 0){
+    const pct = Math.round(((a.total - a.pendentes.length) / a.total) * 100);
+    itensLabel = `<span class="progress-bar"><span class="progress-track"><span class="progress-fill" style="width:${pct}%"></span></span></span> `+
+      `<b>${a.total - a.pendentes.length}/${a.total}</b> itens entregues`;
+    if(a.pendentes.length && a.temProblemaReal){
+      const nomes = a.pendentes.slice(0,3).map(it=>it.item).filter(Boolean).join(", ");
+      itensLabel += ` — faltando: ${nomes}${a.pendentes.length>3 ? "…" : ""}`;
+    } else if(a.pendentes.length){
+      itensLabel += ` — aguardando entrega`;
+    }
+  } else {
+    itensLabel = "Sem itens registrados";
+  }
+  main.appendChild(el("div","card-items", itensLabel));
+  main.appendChild(el("div","expand-hint", isExpanded ? "▲ clique para recolher" : "▼ clique para ver itens e fotos"));
+
+  if(divergencia && divergencia.obs){
+    main.appendChild(el("div","card-items", `Obs: ${divergencia.obs}`));
+  }
+
+  row.appendChild(main);
+
+  const side = el("div","card-side");
+
+  if(a.diasAtraso !== null){
+    if(a.diasAtraso <= 0){
+      side.appendChild(el("div","days-tag days-emdia","Em dia"));
+    } else {
+      let cls = "days-ok", rotulo = "leve";
+      if(a.diasAtraso > 5){ cls = "days-late"; rotulo = "atrasado"; }
+      else if(a.diasAtraso > 3){ cls = "days-warn"; rotulo = "moderado"; }
+      side.appendChild(el("div", `days-tag ${cls}`, `${a.diasAtraso}d atraso — ${rotulo}`));
+    }
+  }
+
+  if(estado === "atencao" && a.diasAtraso !== null && a.diasAtraso > 0){
+    let clsRep = "days-ok";
+    if(a.diasAtraso > 5) clsRep = "days-late";
+    else if(a.diasAtraso > 3) clsRep = "days-warn";
+    side.appendChild(el("div", `days-tag ${clsRep}`, `Aguardando reportar (${a.diasAtraso}d)`));
+  }
+
+  if(estado === "aguardando" && divergencia && divergencia.atencaoMostradoISO){
+    const horas = horasDesde(divergencia.atencaoMostradoISO);
+    const urgenteRetorno = horas >= 24;
+    side.appendChild(el("div", `days-tag ${urgenteRetorno ? "days-late" : "days-ok"}`, `${Math.floor(horas)}h sem retorno`));
+  }
+
+  {
+    let statusLabel;
+    if(estado === "atencao"){
+      statusLabel = `Divergência - ${(divergencia && divergencia.tipoProblema) || "a confirmar"}`;
+    } else {
+      statusLabel = { aguardando:"Aguardando retorno", resolvido:"Resolvido" }[estado];
+    }
+    const statusCls = { atencao:"days-ok", aguardando:"status-reportado", resolvido:"status-resolvido" }[estado];
+    side.appendChild(el("div", `status-tag ${statusCls}`, statusLabel));
+  }
+
+  const verificado = divergencia && divergencia.verificadoSite;
+  const checkLabel = el("label", "verificado-check" + (verificado ? " checked" : ""));
+  checkLabel.innerHTML = `<input type="checkbox" ${verificado ? "checked" : ""}> Verificado no site como entregue`;
+  checkLabel.onclick = (e) => e.stopPropagation();
+  checkLabel.querySelector("input").onchange = (e) => toggleVerificado(ordem, divergencia, rid, e.target.checked);
+  side.appendChild(checkLabel);
+
+  const semAcesso = divergencia && divergencia.semAcessoSite;
+  const checkSemAcesso = el("label", "verificado-check" + (semAcesso ? " checked" : ""));
+  checkSemAcesso.innerHTML = `<input type="checkbox" ${semAcesso ? "checked" : ""}> Sem acesso ao site`;
+  checkSemAcesso.onclick = (e) => e.stopPropagation();
+  checkSemAcesso.querySelector("input").onchange = (e) => toggleCampoBooleano(ordem, divergencia, rid, "semAcessoSite", e.target.checked);
+  side.appendChild(checkSemAcesso);
+
+  const actions = el("div","card-actions");
+
+  if(estado === "atencao"){
+    const btnCopy = el("button","btn btn-ghost btn-sm","Copiar alerta");
+    btnCopy.onclick = () => copiarAlerta(ordem, DIVERGENCIAS[rid] || divergencia || null);
+    actions.appendChild(btnCopy);
+
+    const btnImg = el("button","btn btn-ghost btn-sm","🖼️ Copiar imagem");
+    btnImg.onclick = (e) => copiarAlertaComoImagem(ordem, DIVERGENCIAS[rid] || divergencia || null, e.target);
+    actions.appendChild(btnImg);
+
+    if(!divergencia || !divergencia.tipoProblema){
+      const btn = el("button","btn btn-brand btn-sm","Confirmar tipo de problema");
+      btn.onclick = () => abrirModalRegistro(ordem, divergencia);
+      actions.appendChild(btn);
+    }
+
+    const btnMostrado = el("button","btn btn-ghost btn-sm","✓ Mostrado à vendedora");
+    btnMostrado.onclick = () => { btnMostrado.classList.remove("btn-ghost"); btnMostrado.classList.add("btn-check-mostrar"); toggleAtencaoMostrado(ordem, divergencia, rid, true); };
+    actions.appendChild(btnMostrado);
+  } else if(estado === "aguardando"){
+    const btnResolver = el("button","btn btn-brand btn-sm","Marcar retorno recebido");
+    btnResolver.onclick = () => marcarAtencaoResolvido(rid);
+    actions.appendChild(btnResolver);
+
+    const btnVoltar = el("button","btn btn-ghost btn-sm","Voltar p/ atenção");
+    btnVoltar.onclick = () => toggleAtencaoMostrado(ordem, divergencia, rid, false);
+    actions.appendChild(btnVoltar);
+  } else {
+    const btnVoltar = el("button","btn btn-ghost btn-sm","Reabrir");
+    btnVoltar.onclick = () => reabrirAtencao(rid);
+    actions.appendChild(btnVoltar);
+  }
+
+  if(divergencia){
+    const btnEdit = el("button","btn btn-ghost btn-sm", divergencia.tipoProblema ? "Editar" : "Selecionar problema");
+    btnEdit.onclick = () => abrirModalRegistro(ordem, divergencia);
+    actions.appendChild(btnEdit);
+  }
+
+  side.appendChild(actions);
+  row.appendChild(side);
+  card.appendChild(row);
+
+  if(isExpanded){
+    card.appendChild(renderItemList(ordem, divergencia, rid));
+  }
+
+  return card;
+}
+
+function renderSecao(container, titulo, hint, lista, renderFn, colapsavel=false, itemCount=null){
+  const section = el("div","section");
+  const head = el("div","section-head");
+  head.innerHTML = `<h2>${titulo}</h2><span class="count">${lista.length}</span>` +
+    (itemCount !== null ? `<span class="count count-itens">${itemCount} itens pendentes</span>` : "") +
+    (hint ? `<span class="hint">${hint}</span>` : "");
+  section.appendChild(head);
+
+  const body = () => {
+    const wrap = el("div","cards");
+    if(lista.length === 0){
+      wrap.appendChild(el("div","empty","Nada por aqui no momento."));
+      return wrap;
+    }
+    // agrupar por loja
+    const porLoja = new Map();
+    lista.forEach(item => {
+      const loja = lojaDe(item.ordem);
+      if(!porLoja.has(loja)) porLoja.set(loja, []);
+      porLoja.get(loja).push(item);
+    });
+    const grupos = Array.from(porLoja.entries()).sort((a,b) => b[1].length - a[1].length);
+
+    grupos.forEach(([loja, itens]) => {
+      const groupEl = el("div","loja-group");
+      groupEl.appendChild(el("div","loja-group-header",
+        `${loja} <span class="n">${itens.length}</span>`));
+      itens.forEach(item => groupEl.appendChild(renderFn(item)));
+      wrap.appendChild(groupEl);
+    });
+    return wrap;
+  };
+
+  if(colapsavel && lista.length > 0){
+    const det = el("details","resolved-block");
+    const sum = el("summary", null, `Mostrar ${lista.length} resolvidas`);
+    det.appendChild(sum);
+    det.appendChild(body());
+    section.appendChild(det);
+  } else {
+    section.appendChild(body());
+  }
+  container.appendChild(section);
+}
+
+function aplicarFiltro(ordens){
+  return ordens.filter(o => {
+    if(filtro.origem !== "todas" && o.origem !== filtro.origem) return false;
+    if(filtro.vendedora !== "todas" && (o.vendedora||"").trim() !== filtro.vendedora) return false;
+    if(filtro.texto){
+      const t = filtro.texto.toLowerCase();
+      const alvo = `${o.ordem} ${lojaDe(o)} ${o.vendedora}`.toLowerCase();
+      if(!alvo.includes(t)) return false;
+    }
+    return true;
+  });
+}
+
+let CHARTS_RELATORIO = [];
+
+async function toggleAtencaoMostrado(ordem, divergencia, rid, valor){
+  const base = divergencia ? { ...divergencia } : {
+    ordem: ordem.ordem, origem: ordem.origem, loja: lojaDe(ordem), vendedora: ordem.vendedora || "",
+    tipoProblema: null, dataIdentificado: hojeStr(), dataIdentificadoISO: new Date().toISOString(),
+    status: "pendente", obs: ""
+  };
+  base.atencaoMostrado = valor;
+  base.atencaoMostradoISO = valor ? new Date().toISOString() : null;
+  if(!valor){ base.atencaoResolvido = false; base.atencaoResolvidoISO = null; }
+  try{
+    await db.collection(DIVERGENCIAS_COLLECTION).doc(rid).set(base, { merge: true });
+    DIVERGENCIAS[rid] = { id: rid, ...base };
+    renderApp();
+  }catch(e){
+    console.error(e);
+    toast("Erro ao salvar — tente de novo");
+  }
+}
+
+async function marcarAtencaoResolvido(rid){
+  const update = { atencaoResolvido: true, atencaoResolvidoISO: new Date().toISOString() };
+  try{
+    await db.collection(DIVERGENCIAS_COLLECTION).doc(rid).set(update, { merge: true });
+    DIVERGENCIAS[rid] = { ...DIVERGENCIAS[rid], ...update };
+    toast("Retorno registrado");
+    renderApp();
+  }catch(e){
+    console.error(e);
+    toast("Erro ao salvar — tente de novo");
+  }
+}
+
+async function reabrirAtencao(rid){
+  const update = { atencaoResolvido: false, atencaoResolvidoISO: null };
+  try{
+    await db.collection(DIVERGENCIAS_COLLECTION).doc(rid).set(update, { merge: true });
+    DIVERGENCIAS[rid] = { ...DIVERGENCIAS[rid], ...update };
+    renderApp();
+  }catch(e){
+    console.error(e);
+    toast("Erro ao salvar — tente de novo");
+  }
+}
+
+function renderRelatorioView(app){
+  CHARTS_RELATORIO.forEach(c => c.destroy());
+  CHARTS_RELATORIO = [];
+
+  // monta lista de itens com problema (registrados ou candidatos), igual à regra da planilha
+  const linhas = [];
+  ORDERS.forEach(ordem => {
+    const a = analisarOrdem(ordem);
+    const rid = recordId(ordem);
+    const div = DIVERGENCIAS[rid];
+    if(!a.temProblemaReal && !div) return;
+    const statusTxt = { atencao:"Atenção", aguardando:"Aguardando retorno", resolvido:"Resolvido" }[estadoAtencao(div)];
+    a.pendentes.forEach(it => {
+      const dc = parseDataBR(it.dataChegada);
+      const diasAtraso = dc ? diasEntre(dc, new Date()) : null;
+      linhas.push({ ordem, item: it, diasAtraso, vendedora: (ordem.vendedora||"-").trim() || "-", statusDivergencia: statusTxt });
+    });
+  });
+
+  const porStatus = { "Atenção":0, "Aguardando retorno":0, "Resolvido":0 };
+  linhas.forEach(l => { porStatus[l.statusDivergencia] = (porStatus[l.statusDivergencia]||0) + 1; });
+
+  const ordemSituacoes = [];
+  const porSituacao = {};
+  linhas.forEach(l => {
+    let chave;
+    if(l.diasAtraso === null) chave = "Sem data prevista";
+    else if(l.diasAtraso <= 0) chave = "Em dia";
+    else if(l.diasAtraso <= 3) chave = "Atraso leve";
+    else if(l.diasAtraso <= 5) chave = "Atraso moderado";
+    else chave = "Atrasado";
+    if(!(chave in porSituacao)){ porSituacao[chave] = 0; ordemSituacoes.push(chave); }
+    porSituacao[chave]++;
+  });
+
+  const porVendedora = {};
+  linhas.forEach(l => { porVendedora[l.vendedora] = (porVendedora[l.vendedora]||0) + 1; });
+
+  // ordens que precisam de atenção: já atrasadas (1+ dia), mais urgentes primeiro
+  const porOrdem = new Map();
+  linhas.forEach(l => {
+    const rid = recordId(l.ordem);
+    if(!porOrdem.has(rid)) porOrdem.set(rid, { ordem: l.ordem, maxAtraso: -9999, itens: [] });
+    const entry = porOrdem.get(rid);
+    entry.itens.push(l.item.item || "item");
+    if(l.diasAtraso !== null && l.diasAtraso > entry.maxAtraso) entry.maxAtraso = l.diasAtraso;
+  });
+  const atencao = Array.from(porOrdem.values()).filter(o => o.maxAtraso >= 1).sort((a,b) => b.maxAtraso - a.maxAtraso);
+
+  const SITUACAO_CORES_CHART = {
+    "Em dia": "#34A853", "Atraso leve": "#F5C453", "Atraso moderado": "#E8710A",
+    "Atrasado": "#EA4335", "Sem data prevista": "#9AA0A6"
+  };
+  const STATUS_CORES_CHART = { "Atenção": "#F5A623", "Aguardando retorno": "#4A76E8", "Resolvido": "#34A853" };
+
+  const cards = el("div","relatorio-cards");
+  cards.innerHTML = `
+    <div class="relatorio-card card-total"><div class="valor">${linhas.length}</div><div class="label">Total com problema</div></div>
+    <div class="relatorio-card card-atrasado"><div class="valor">${porSituacao["Atrasado"]||0}</div><div class="label">Atrasados</div></div>
+    <div class="relatorio-card card-emdia"><div class="valor">${porSituacao["Em dia"]||0}</div><div class="label">Em dia</div></div>
+    <div class="relatorio-card card-pendente"><div class="valor">${porStatus["Atenção"]||0}</div><div class="label">Atenção (não mostrado)</div></div>
+  `;
+  app.appendChild(cards);
+
+  const chartsRow = el("div","relatorio-charts");
+  chartsRow.innerHTML = `
+    <div class="chart-box"><h3>Divergências por status</h3><canvas id="chartStatus"></canvas></div>
+    <div class="chart-box"><h3>Itens por situação de prazo</h3><canvas id="chartSituacao"></canvas></div>
+    <div class="chart-box"><h3>Itens por vendedora</h3><canvas id="chartVendedora"></canvas></div>
+  `;
+  app.appendChild(chartsRow);
+
+  const atencaoSection = el("div","section");
+
+  // sub-abas: Atenção / Aguardando retorno / Resolvido
+  const subTabs = el("div","atencao-subtabs");
+  const atencaoComFiltros = atencao
+    .filter(o => ATENCAO_FILTRO_VENDEDORA === "todas" || (o.ordem.vendedora||"-").trim() === ATENCAO_FILTRO_VENDEDORA)
+    .filter(o => ATENCAO_FILTRO_LOJA === "todas" || lojaDe(o.ordem) === ATENCAO_FILTRO_LOJA);
+
+  const naoMostradas = [], aguardandoRetorno = [], resolvidas = [];
+  atencaoComFiltros.forEach(o => {
+    const rid = recordId(o.ordem);
+    const div = DIVERGENCIAS[rid];
+    if(div && div.atencaoResolvido) resolvidas.push(o);
+    else if(div && div.atencaoMostrado) aguardandoRetorno.push(o);
+    else naoMostradas.push(o);
+  });
+  const listasPorSubaba = { atencao: naoMostradas, aguardando: aguardandoRetorno, resolvido: resolvidas };
+
+  const vendedorasAtencao = Array.from(new Set(atencao.map(o => (o.ordem.vendedora||"-").trim()))).sort();
+  const filtroVendedoraHTML = criarSelectCustomHTML("atencaoVendedoraSelect",
+    [{value:"todas",label:"Todas as vendedoras"}, ...vendedorasAtencao.map(v=>({value:v,label:v}))],
+    ATENCAO_FILTRO_VENDEDORA);
+
+  const lojasAtencao = Array.from(new Set(atencao.map(o => lojaDe(o.ordem)))).filter(Boolean).sort();
+  const filtroLojaHTML = criarSelectCustomHTML("atencaoLojaSelect",
+    [{value:"todas",label:"Todas as lojas"}, ...lojasAtencao.map(l=>({value:l,label:l}))],
+    ATENCAO_FILTRO_LOJA);
+
+  subTabs.innerHTML = `
+    <div class="atencao-tabs-row">
+      <button type="button" class="atencao-subtab${ATENCAO_SUBVIEW==='atencao'?' active':''}" data-tab="atencao">Atenção <span class="n">${naoMostradas.length}</span></button>
+      <button type="button" class="atencao-subtab${ATENCAO_SUBVIEW==='aguardando'?' active':''}" data-tab="aguardando">Aguardando retorno <span class="n">${aguardandoRetorno.length}</span></button>
+      <button type="button" class="atencao-subtab${ATENCAO_SUBVIEW==='resolvido'?' active':''}" data-tab="resolvido">Resolvido <span class="n">${resolvidas.length}</span></button>
+      <div class="atencao-filtro-vendedora" style="display:flex; gap:8px; margin-left:auto;">${filtroLojaHTML}${filtroVendedoraHTML}</div>
+    </div>
+  `;
+  atencaoSection.innerHTML = `<div class="section-head"><h2>Ordens que precisam de atenção</h2><span class="hint">atrasadas há 1+ dia — avisar a vendedora e acompanhar retorno</span></div>`;
+  atencaoSection.appendChild(subTabs);
+
+  const atencaoBody = el("div");
+  const listaAtual = listasPorSubaba[ATENCAO_SUBVIEW];
+
+  if(listaAtual.length === 0){
+    const msgVazio = {
+      atencao: "Nenhuma ordem esperando ser mostrada à vendedora.",
+      aguardando: "Nenhuma ordem aguardando retorno no momento.",
+      resolvido: "Nenhuma ordem resolvida ainda."
+    }[ATENCAO_SUBVIEW];
+    atencaoBody.appendChild(el("div","empty",msgVazio));
+  } else {
+    listaAtual.forEach(o => {
+      const rid = recordId(o.ordem);
+      const div = DIVERGENCIAS[rid] || null;
+      const card = el("div","atencao-card");
+      card.style.cursor = "pointer";
+      card.onclick = (e) => {
+        if(e.target.closest("button") || e.target.closest("label")) return;
+        if(ATENCAO_EXPANDIDAS.has(rid)) ATENCAO_EXPANDIDAS.delete(rid); else ATENCAO_EXPANDIDAS.add(rid);
+        renderApp();
+      };
+
+      let horasSemRetorno = null;
+      if(ATENCAO_SUBVIEW === "aguardando" && div && div.atencaoMostradoISO){
+        horasSemRetorno = horasDesde(div.atencaoMostradoISO);
+      }
+      const semRetornoUrgente = horasSemRetorno !== null && horasSemRetorno >= 24;
+      if(semRetornoUrgente) card.classList.add("atencao-card-urgente");
+
+      card.innerHTML = `
+        <div class="atencao-card-top">
+          <div class="atencao-info">
+            <div class="ordem-num">${badgeOrigem(o.ordem.origem)} Ordem ${o.ordem.ordem} — ${lojaDe(o.ordem)}</div>
+            <div class="detalhe">Vendedora: ${o.ordem.vendedora || "-"} · Itens: ${o.itens.slice(0,3).join(", ")}${o.itens.length>3 ? "…" : ""}</div>
+            <div class="expand-hint">${ATENCAO_EXPANDIDAS.has(rid) ? "▲ clique para recolher" : "▼ clique para ver itens e fotos"}</div>
+          </div>
+        </div>
+      `;
+      const topRow = card.querySelector(".atencao-card-top");
+      const acoes = el("div");
+      acoes.style.cssText = "display:flex; flex-direction:column; align-items:flex-end; gap:8px;";
+
+      if(ATENCAO_SUBVIEW === "atencao"){
+        acoes.appendChild(el("span","atencao-badge", `${o.maxAtraso}d atrasado`));
+        const btnRow = el("div");
+        btnRow.style.cssText = "display:flex; gap:6px;";
+        const btnCopy = el("button","btn btn-brand btn-sm","Copiar alerta");
+        btnCopy.onclick = () => copiarAlerta(o.ordem, div);
+        btnRow.appendChild(btnCopy);
+        const btnImg = el("button","btn btn-ghost btn-sm","🖼️ Copiar imagem");
+        btnImg.onclick = (e) => copiarAlertaComoImagem(o.ordem, div, e.target);
+        btnRow.appendChild(btnImg);
+        const btnMostrado = el("button","btn btn-ghost btn-sm","✓ Mostrado à vendedora");
+        btnMostrado.onclick = () => { btnMostrado.classList.remove("btn-ghost"); btnMostrado.classList.add("btn-check-mostrar"); toggleAtencaoMostrado(o.ordem, div, rid, true); };
+        btnRow.appendChild(btnMostrado);
+        acoes.appendChild(btnRow);
+        const verificadoAtencao = div && div.verificadoSite;
+        const checkVerificado = el("label","verificado-check" + (verificadoAtencao ? " checked" : ""));
+        checkVerificado.innerHTML = `<input type="checkbox" ${verificadoAtencao ? "checked" : ""}> Verificado no site como entregue`;
+        checkVerificado.onclick = (e) => e.stopPropagation();
+        checkVerificado.querySelector("input").onchange = (e) => toggleVerificado(o.ordem, div, rid, e.target.checked);
+        acoes.appendChild(checkVerificado);
+        const semAcessoAtencao = div && div.semAcessoSite;
+        const checkSemAcesso = el("label","verificado-check" + (semAcessoAtencao ? " checked" : ""));
+        checkSemAcesso.innerHTML = `<input type="checkbox" ${semAcessoAtencao ? "checked" : ""}> Sem acesso ao site`;
+        checkSemAcesso.onclick = (e) => e.stopPropagation();
+        checkSemAcesso.querySelector("input").onchange = (e) => toggleCampoBooleano(o.ordem, div, rid, "semAcessoSite", e.target.checked);
+        acoes.appendChild(checkSemAcesso);
+      } else if(ATENCAO_SUBVIEW === "aguardando"){
+        const horasTxt = horasSemRetorno !== null ? `${Math.floor(horasSemRetorno)}h sem retorno` : "Sem registro de horário";
+        acoes.appendChild(el("span", "atencao-badge" + (semRetornoUrgente ? "" : " atencao-badge-ok"), horasTxt));
+        const btnRowAguardando = el("div");
+        btnRowAguardando.style.cssText = "display:flex; gap:6px;";
+        const btnCopyAguardando = el("button","btn btn-ghost btn-sm","Copiar alerta");
+        btnCopyAguardando.onclick = () => copiarAlerta(o.ordem, div);
+        btnRowAguardando.appendChild(btnCopyAguardando);
+        const btnImgAguardando = el("button","btn btn-ghost btn-sm","🖼️ Copiar imagem");
+        btnImgAguardando.onclick = (e) => copiarAlertaComoImagem(o.ordem, div, e.target);
+        btnRowAguardando.appendChild(btnImgAguardando);
+        acoes.appendChild(btnRowAguardando);
+        const btnResolver = el("button","btn btn-brand btn-sm","Marcar retorno recebido");
+        btnResolver.onclick = () => marcarAtencaoResolvido(rid);
+        acoes.appendChild(btnResolver);
+        const btnVoltar = el("button","btn btn-ghost btn-sm","Voltar p/ atenção");
+        btnVoltar.onclick = () => toggleAtencaoMostrado(o.ordem, div, rid, false);
+        acoes.appendChild(btnVoltar);
+      } else {
+        acoes.appendChild(el("span","atencao-badge atencao-badge-ok","Retorno recebido"));
+        const btnVoltar = el("button","btn btn-ghost btn-sm","Reabrir");
+        btnVoltar.onclick = () => reabrirAtencao(rid);
+        acoes.appendChild(btnVoltar);
+      }
+
+      topRow.appendChild(acoes);
+      if(ATENCAO_EXPANDIDAS.has(rid)){
+        card.appendChild(renderItemListSomentePendentes(o.ordem, div, rid));
+      }
+      atencaoBody.appendChild(card);
+    });
+  }
+  atencaoSection.appendChild(atencaoBody);
+  app.appendChild(atencaoSection);
+
+  subTabs.querySelectorAll(".atencao-subtab").forEach(btn => {
+    btn.onclick = () => { ATENCAO_SUBVIEW = btn.getAttribute("data-tab"); renderApp(); };
+  });
+  ativarSelectCustom("atencaoVendedoraSelect", (v) => { ATENCAO_FILTRO_VENDEDORA = v; renderApp(); });
+  ativarSelectCustom("atencaoLojaSelect", (v) => { ATENCAO_FILTRO_LOJA = v; renderApp(); });
+
+  requestAnimationFrame(() => {
+    const c1 = new Chart(document.getElementById("chartStatus"), {
+      type: "pie",
+      data: {
+        labels: Object.keys(porStatus),
+        datasets: [{ data: Object.values(porStatus), backgroundColor: Object.keys(porStatus).map(k => STATUS_CORES_CHART[k]) }]
+      },
+      options: { plugins: { legend: { position: "right" } }, maintainAspectRatio: false }
+    });
+    const c2 = new Chart(document.getElementById("chartSituacao"), {
+      type: "pie",
+      data: {
+        labels: ordemSituacoes,
+        datasets: [{ data: ordemSituacoes.map(k => porSituacao[k]), backgroundColor: ordemSituacoes.map(k => SITUACAO_CORES_CHART[k]) }]
+      },
+      options: { plugins: { legend: { position: "right" } }, maintainAspectRatio: false }
+    });
+    const vendedorasOrdenadas = Object.keys(porVendedora).sort((a,b) => porVendedora[b] - porVendedora[a]);
+    const c3 = new Chart(document.getElementById("chartVendedora"), {
+      type: "bar",
+      data: {
+        labels: vendedorasOrdenadas,
+        datasets: [{ data: vendedorasOrdenadas.map(v => porVendedora[v]), backgroundColor: "#0F5257" }]
+      },
+      options: { plugins: { legend: { display: false } }, maintainAspectRatio: false }
+    });
+    CHARTS_RELATORIO = [c1, c2, c3];
+  });
+}
+
+function renderApp(){
+  const app = document.getElementById("app");
+  app.innerHTML = "";
+
+  const tabs = el("div","view-tabs");
+  [["ordens","Ordens"],["relatorio","Relatório"]].forEach(([key,label]) => {
+    const btn = el("button","view-tab" + (VIEW_ATUAL===key ? " active" : ""), label);
+    btn.onclick = () => { VIEW_ATUAL = key; renderApp(); };
+    tabs.appendChild(btn);
+  });
+  app.appendChild(tabs);
+
+  if(VIEW_ATUAL === "relatorio"){
+    renderRelatorioView(app);
+    return;
+  }
+
+  const vendedoras = Array.from(new Set(ORDERS.map(o => (o.vendedora||"").trim()).filter(Boolean))).sort();
+
+  const toolbar = el("div","toolbar");
+  toolbar.innerHTML = `
+    <input type="text" id="buscaInput" placeholder="Buscar por ordem, loja ou vendedora…" value="${filtro.texto}">
+    ${criarSelectCustomHTML("origemSelect", [
+      {value:"todas", label:"Todas as origens"},
+      {value:"USA", label:"USA"},
+      {value:"BR", label:"BR"}
+    ], filtro.origem)}
+    ${criarSelectCustomHTML("vendedoraSelect", [
+      {value:"todas", label:"Todas as vendedoras"},
+      ...vendedoras.map(v => ({value:v, label:v}))
+    ], filtro.vendedora)}
+    ${criarSelectCustomHTML("ordenacaoSelect", [
+      {value:"mais_tempo", label:"Mais tempo primeiro"},
+      {value:"menos_tempo", label:"Menos tempo primeiro"}
+    ], filtro.ordenacao)}
+    <button class="btn btn-ghost" id="pdfBtn">Baixar PDF por vendedora</button>
+  `;
+  app.appendChild(toolbar);
+
+  const ordensFiltradas = aplicarFiltro(ORDERS);
+
+  const grupos = { atencao: [], aguardando: [], resolvido: [] };
+  ordensFiltradas.forEach(ordem => {
+    const rid = recordId(ordem);
+    const div = DIVERGENCIAS[rid];
+    const a = analisarOrdem(ordem);
+    if(div){
+      grupos[estadoAtencao(div)].push({ordem, div});
+    } else if(a.candidata){
+      grupos.atencao.push({ordem, div:null});
+    }
+  });
+
+  const dir = filtro.ordenacao === "mais_tempo" ? -1 : 1;
+  Object.values(grupos).forEach(lista => {
+    lista.sort((x, y) => {
+      const dx = analisarOrdem(x.ordem).diasAtraso ?? -999;
+      const dy = analisarOrdem(y.ordem).diasAtraso ?? -999;
+      return (dx - dy) * dir;
+    });
+  });
+
+  renderSummary(grupos);
+
+  if(filtro.status === "todos" || filtro.status === "atencao"){
+    const totalItensPendentes = grupos.atencao.reduce((soma, x) => soma + analisarOrdem(x.ordem).pendentes.length, 0);
+    renderSecao(app, "Ordem pendente para reportar", "detectadas pelo sistema ou registradas manualmente", grupos.atencao,
+      (x) => cardOrdem(x.ordem, x.div), false, totalItensPendentes);
+  }
+
+  if(filtro.status === "todos" || filtro.status === "aguardando"){
+    renderSecao(app, "Aguardando retorno da vendedora", null, grupos.aguardando,
+      (x) => cardOrdem(x.ordem, x.div));
+  }
+
+  if(filtro.status === "todos" || filtro.status === "resolvido"){
+    renderSecao(app, "Resolvido", null, grupos.resolvido,
+      (x) => cardOrdem(x.ordem, x.div), filtro.status !== "resolvido");
+  }
+
+  document.getElementById("buscaInput").oninput = (e) => { filtro.texto = e.target.value; renderApp(); };
+  ativarSelectCustom("origemSelect", (v) => { filtro.origem = v; renderApp(); });
+  ativarSelectCustom("vendedoraSelect", (v) => { filtro.vendedora = v; renderApp(); });
+  ativarSelectCustom("ordenacaoSelect", (v) => { filtro.ordenacao = v; renderApp(); });
+  document.getElementById("pdfBtn").onclick = () => abrirModalPdf();
+}
+
+/* ---------- Modal de registro ---------- */
+function abrirModalRegistro(ordem, divergenciaExistente){
+  const root = document.getElementById("modalRoot");
+  const rid = recordId(ordem);
+  const isEdit = !!divergenciaExistente;
+  let tipoSelecionado = isEdit ? (divergenciaExistente.tipoProblema || null) : null;
+
+  root.innerHTML = "";
+  const overlay = el("div","overlay");
+  const modal = el("div","modal");
+  modal.innerHTML = `
+    <h3>${isEdit ? "Editar divergência" : "Registrar divergência"}</h3>
+    <div class="modal-sub">Ordem ${ordem.ordem} · ${ordem.origem} · ${lojaDe(ordem)}</div>
+    <div class="field">
+      <label>Tipo de problema</label>
+      <div class="tipo-opcoes" id="tipoOpcoes"></div>
+    </div>
+    <div class="field">
+      <label>Data em que foi identificado</label>
+      <input type="text" id="dataIdentificado" value="${isEdit ? divergenciaExistente.dataIdentificado : hojeStr()}">
+    </div>
+    <div class="field">
+      <label>Observação (opcional)</label>
+      <textarea id="obsField">${isEdit ? (divergenciaExistente.obs||"") : ""}</textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="cancelBtn">Cancelar</button>
+      <button class="btn btn-brand" id="salvarBtn">Salvar</button>
+    </div>
+  `;
+  overlay.appendChild(modal);
+  root.appendChild(overlay);
+
+  const tipoOpcoesEl = document.getElementById("tipoOpcoes");
+  function renderTipoOpcoes(){
+    tipoOpcoesEl.innerHTML = "";
+    TIPOS_PROBLEMA.forEach(t => {
+      const btn = el("button", "tipo-chip" + (tipoSelecionado === t ? " selecionado" : ""), t);
+      btn.type = "button";
+      btn.onclick = () => { tipoSelecionado = t; renderTipoOpcoes(); };
+      tipoOpcoesEl.appendChild(btn);
+    });
+  }
+  renderTipoOpcoes();
+
+  document.getElementById("cancelBtn").onclick = () => root.innerHTML = "";
+  overlay.onclick = (e) => { if(e.target === overlay) root.innerHTML = ""; };
+
+  document.getElementById("salvarBtn").onclick = async () => {
+    const tipoProblema = tipoSelecionado;
+    const dataIdentificado = document.getElementById("dataIdentificado").value.trim();
+    const obs = document.getElementById("obsField").value.trim();
+
+    const registro = {
+      ...(divergenciaExistente || {}),
+      ordem: ordem.ordem,
+      origem: ordem.origem,
+      loja: lojaDe(ordem),
+      vendedora: ordem.vendedora || "",
+      tipoProblema,
+      dataIdentificado,
+      dataIdentificadoISO: isEdit ? divergenciaExistente.dataIdentificadoISO : new Date().toISOString(),
+      status: isEdit ? divergenciaExistente.status : "pendente",
+      obs
+    };
+
+    try{
+      await db.collection(DIVERGENCIAS_COLLECTION).doc(rid).set(registro, { merge: true });
+      DIVERGENCIAS[rid] = { id: rid, ...registro };
+      root.innerHTML = "";
+      toast("Divergência salva");
+      renderApp();
+    }catch(e){
+      console.error(e);
+      toast("Erro ao salvar — tente de novo");
+    }
+  };
+}
+
+async function atualizarStatus(rid, novoStatus){
+  const atual = DIVERGENCIAS[rid];
+  const update = { status: novoStatus };
+  if(novoStatus === "reportado") update.dataReportado = hojeStr();
+  if(novoStatus === "resolvido") update.dataResolvido = hojeStr();
+  // se está voltando de "reportado" pra "pendente", reinicia a contagem de "sem reportar"
+  // a partir de agora — não faz sentido retomar a contagem antiga (podia estar em dezenas de dias)
+  if(novoStatus === "pendente" && atual && atual.status === "reportado"){
+    update.dataIdentificado = hojeStr();
+    update.dataIdentificadoISO = new Date().toISOString();
+    update.voltouDePendente = true;
+  }
+  try{
+    await db.collection(DIVERGENCIAS_COLLECTION).doc(rid).set(update, { merge: true });
+    DIVERGENCIAS[rid] = { ...DIVERGENCIAS[rid], ...update };
+    toast(novoStatus === "reportado" ? "Marcado como reportado" : novoStatus === "resolvido" ? "Marcado como resolvido" : "Voltou para pendente — contagem reiniciada");
+    renderApp();
+  }catch(e){
+    console.error(e);
+    toast("Erro ao atualizar — tente de novo");
+  }
+}
+
+/* ---------- Inicialização ---------- */
+async function init(isRefresh){
+  const app = document.getElementById("app");
+  if(!isRefresh){
+    app.innerHTML = `<div class="loading">Carregando ordens…</div>`;
+  }
+  document.getElementById("todayLabel").textContent = `Hoje: ${hojeStr()}`;
+  try{
+    const [ordens, divergencias, fotoUSA, fotoBR] = await Promise.all([
+      carregarOrdens(),
+      carregarDivergencias(),
+      carregarMapaFotos('fotos').catch(()=>({})),
+      carregarMapaFotos('fotos_br').catch(()=>({}))
+    ]);
+    ORDERS = ordens;
+    DIVERGENCIAS = divergencias;
+    FOTO_MAP_USA = fotoUSA;
+    FOTO_MAP_BR = fotoBR;
+    ULTIMA_ATUALIZACAO = new Date();
+    document.getElementById("todayLabel").innerHTML =
+      `Hoje: ${hojeStr()} · <span title="última vez que os dados foram carregados">Atualizado às ${ULTIMA_ATUALIZACAO.toLocaleTimeString("pt-BR")}</span>`;
+    renderApp();
+  }catch(e){
+    console.error(e);
+    app.innerHTML = `<div class="error-box">Não foi possível carregar os dados. Verifique sua conexão e tente atualizar a página.</div>`;
+  }
+}
+
+/* ---------- Login com Google ---------- */
+function mostrarTelaLogin(){
+  const app = document.getElementById("app");
+  app.innerHTML = `
+    <div style="max-width:360px; margin:80px auto; text-align:center; background:#fff; border-radius:16px; padding:36px 28px; box-shadow:var(--shadow);">
+      <h2 style="font-family:'Space Grotesk',sans-serif; margin-bottom:8px;">Controle de Divergências</h2>
+      <p style="color:var(--ink-soft); font-size:14px; margin-bottom:22px;">Entre com sua conta Google pra acessar o app.</p>
+      <button id="btnLoginGoogle" class="btn btn-brand" style="width:100%; justify-content:center;">Entrar com Google</button>
+    </div>
+  `;
+  document.getElementById("btnLoginGoogle").onclick = () => {
+    const provider = new firebase.auth.GoogleAuthProvider();
+    auth.signInWithPopup(provider).catch(e => {
+      console.error(e);
+      toast("Não foi possível entrar — tente de novo");
+    });
+  };
+}
+
+auth.onAuthStateChanged(user => {
+  if(user){
+    init(false);
+  } else {
+    mostrarTelaLogin();
+  }
+});
+
+</script>
+</body>
+</html>
