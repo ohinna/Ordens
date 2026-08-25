@@ -1973,7 +1973,7 @@ function renderRelatorioView(app){
         labels: Object.keys(porStatus),
         datasets: [{ data: Object.values(porStatus), backgroundColor: Object.keys(porStatus).map(k => STATUS_CORES_CHART[k]) }]
       },
-      options: { plugins: { legend: { position: "right" } }, maintainAspectRatio: false }
+      options: { plugins: { legend: { position: "right" } }, maintainAspectRatio: false, animation: false }
     });
     const c2 = new Chart(document.getElementById("chartSituacao"), {
       type: "pie",
@@ -1981,7 +1981,7 @@ function renderRelatorioView(app){
         labels: ordemSituacoes,
         datasets: [{ data: ordemSituacoes.map(k => porSituacao[k]), backgroundColor: ordemSituacoes.map(k => SITUACAO_CORES_CHART[k]) }]
       },
-      options: { plugins: { legend: { position: "right" } }, maintainAspectRatio: false }
+      options: { plugins: { legend: { position: "right" } }, maintainAspectRatio: false, animation: false }
     });
     const vendedorasOrdenadas = Object.keys(porVendedora).sort((a,b) => porVendedora[b] - porVendedora[a]);
     const c3 = new Chart(document.getElementById("chartVendedora"), {
@@ -1990,7 +1990,7 @@ function renderRelatorioView(app){
         labels: vendedorasOrdenadas,
         datasets: [{ data: vendedorasOrdenadas.map(v => porVendedora[v]), backgroundColor: "#0F5257" }]
       },
-      options: { plugins: { legend: { display: false } }, maintainAspectRatio: false }
+      options: { plugins: { legend: { display: false } }, maintainAspectRatio: false, animation: false }
     });
     const porOrigemLabels = Object.keys(porOrigem).filter(k => porOrigem[k] > 0);
     const ORIGEM_CORES = { "USA": "#4A3FB5", "BR": "#0A7A57", "SOBRAS": "#9333ea" };
@@ -2000,7 +2000,7 @@ function renderRelatorioView(app){
         labels: porOrigemLabels,
         datasets: [{ data: porOrigemLabels.map(k => porOrigem[k]), backgroundColor: porOrigemLabels.map(k => ORIGEM_CORES[k]) }]
       },
-      options: { plugins: { legend: { position: "right" } }, maintainAspectRatio: false }
+      options: { plugins: { legend: { position: "right" } }, maintainAspectRatio: false, animation: false }
     });
     CHARTS_RELATORIO = [c1, c2, c3, c4];
   });
