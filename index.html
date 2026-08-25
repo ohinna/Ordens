@@ -1735,6 +1735,9 @@ function renderRelatorioView(app){
   const porVendedora = {};
   linhas.forEach(l => { porVendedora[l.vendedora] = (porVendedora[l.vendedora]||0) + 1; });
 
+  // contagem de ordens distintas por origem (BR/USA/SOBRAS)
+  const porOrigem = { "USA": 0, "BR": 0, "SOBRAS": 0 };
+
   // ordens que precisam de atenção: já atrasadas (1+ dia, ou sem data — que conta como atrasado), mais urgentes primeiro
   const porOrdem = new Map();
   linhas.forEach(l => {
@@ -1746,6 +1749,11 @@ function renderRelatorioView(app){
     if(diasEfetivo > entry.maxAtraso) entry.maxAtraso = diasEfetivo;
   });
   const atencao = Array.from(porOrdem.values()).filter(o => o.maxAtraso >= 1).sort((a,b) => b.maxAtraso - a.maxAtraso);
+
+  porOrdem.forEach(entry => {
+    const cat = entry.ordem.fonte === "sobras" ? "SOBRAS" : entry.ordem.origem;
+    porOrigem[cat] = (porOrigem[cat] || 0) + 1;
+  });
 
   // quantas ordens (distintas) ainda estão na fase inicial, sem ter sido mostradas à vendedora
   // (mesma base de cálculo da aba "Ordens que precisam de atenção")
@@ -1778,6 +1786,7 @@ function renderRelatorioView(app){
     <div class="chart-box"><h3>Divergências por status</h3><canvas id="chartStatus"></canvas></div>
     <div class="chart-box"><h3>Itens por situação de prazo</h3><canvas id="chartSituacao"></canvas></div>
     <div class="chart-box"><h3>Itens por vendedora</h3><canvas id="chartVendedora"></canvas></div>
+    <div class="chart-box"><h3>Ordens por origem</h3><canvas id="chartOrigem"></canvas></div>
   `;
   app.appendChild(chartsRow);
 
@@ -1969,7 +1978,17 @@ function renderRelatorioView(app){
       },
       options: { plugins: { legend: { display: false } }, maintainAspectRatio: false }
     });
-    CHARTS_RELATORIO = [c1, c2, c3];
+    const porOrigemLabels = Object.keys(porOrigem).filter(k => porOrigem[k] > 0);
+    const ORIGEM_CORES = { "USA": "#4A3FB5", "BR": "#0A7A57", "SOBRAS": "#9333ea" };
+    const c4 = new Chart(document.getElementById("chartOrigem"), {
+      type: "pie",
+      data: {
+        labels: porOrigemLabels,
+        datasets: [{ data: porOrigemLabels.map(k => porOrigem[k]), backgroundColor: porOrigemLabels.map(k => ORIGEM_CORES[k]) }]
+      },
+      options: { plugins: { legend: { position: "right" } }, maintainAspectRatio: false }
+    });
+    CHARTS_RELATORIO = [c1, c2, c3, c4];
   });
 }
 
