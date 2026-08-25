@@ -1107,6 +1107,13 @@ async function copiarAlertaComoImagem(ordem, divergencia, btn){
   const dataChegadaTxt = a.dataChegadaMin ? a.dataChegadaMin.toLocaleDateString("pt-BR") : "-";
   const atrasoTxt = (a.diasAtraso !== null && a.diasAtraso > 0) ? `${a.diasAtraso} dias de atraso` : "dentro do prazo";
 
+  let semRetornoTxt = "";
+  if(divergencia && divergencia.atencaoMostrado && !divergencia.atencaoResolvido && divergencia.atencaoMostradoISO){
+    const horas = horasDesde(divergencia.atencaoMostradoISO);
+    const txt = horas >= 24 ? `${Math.floor(horas/24)}d sem retorno` : `${Math.floor(horas)}h sem retorno`;
+    semRetornoTxt = `<br><span style="color:#C22B2B; font-weight:bold;">⏱️ ${txt}</span>`;
+  }
+
   const container = document.createElement("div");
   container.style.cssText = "position:fixed; left:-9999px; top:0; width:480px; background:#fff; font-family:Arial,sans-serif; padding:20px; border-radius:12px;";
   container.innerHTML = `
@@ -1117,10 +1124,11 @@ async function copiarAlertaComoImagem(ordem, divergencia, btn){
     <div style="font-size:13px; color:#333; line-height:1.6; margin-bottom:12px;">
       <b>Itens:</b> ${a.total - a.pendentes.length} de ${a.total} itens entregues, faltando ${a.pendentes.length}<br>
       <b>Chegada prevista:</b> ${dataChegadaTxt}<br>
-      <b>Atraso:</b> ${atrasoTxt}
+      <b>Atraso:</b> ${atrasoTxt}${semRetornoTxt}
       ${divergencia && divergencia.verificadoSite ? `<br><span style="color:#157F3D; font-weight:bold;">✅ Ordem verificada no site como entregue</span>` : ""}
       ${divergencia && divergencia.semAcessoSite ? `<br><span style="color:#B5680B; font-weight:bold;">⚠️ Sem acesso ao site</span>` : ""}
     </div>
+    ${divergencia && divergencia.obs && divergencia.obs.trim() ? `<div style="font-size:12px; color:#8A8A8A; background:#F5F5F5; border-radius:8px; padding:8px 10px; margin-bottom:12px;">📝 ${divergencia.obs.trim()}</div>` : ""}
   `;
   const itensBox = document.createElement("div");
   itensAtrasados.forEach(it => {
@@ -1501,7 +1509,8 @@ function cardOrdem(ordem, divergencia, opts={}){
   if(estado === "aguardando" && divergencia && divergencia.atencaoMostradoISO){
     const horas = horasDesde(divergencia.atencaoMostradoISO);
     const urgenteRetorno = horas >= 24;
-    side.appendChild(el("div", `days-tag ${urgenteRetorno ? "days-late" : "days-ok"}`, `${Math.floor(horas)}h sem retorno`));
+    const txtRetorno = horas >= 24 ? `${Math.floor(horas/24)}d sem retorno` : `${Math.floor(horas)}h sem retorno`;
+    side.appendChild(el("div", `days-tag ${urgenteRetorno ? "days-late" : "days-ok"}`, txtRetorno));
   }
 
   {
@@ -1738,6 +1747,17 @@ function renderRelatorioView(app){
   });
   const atencao = Array.from(porOrdem.values()).filter(o => o.maxAtraso >= 1).sort((a,b) => b.maxAtraso - a.maxAtraso);
 
+  // quantas ordens (distintas) ainda estão na fase inicial, sem ter sido mostradas à vendedora
+  // (mesma base de cálculo da aba "Ordens que precisam de atenção")
+  let ordensAguardando24h = 0;
+  atencao.forEach(o => {
+    const rid = recordId(o.ordem);
+    const div = DIVERGENCIAS[rid];
+    if(div && div.atencaoMostrado && !div.atencaoResolvido && div.atencaoMostradoISO){
+      if(horasDesde(div.atencaoMostradoISO) >= 24) ordensAguardando24h++;
+    }
+  });
+
   const SITUACAO_CORES_CHART = {
     "Em dia": "#34A853", "Atraso leve": "#F5C453", "Atraso moderado": "#E8710A",
     "Atrasado": "#EA4335", "Sem data prevista": "#9AA0A6"
@@ -1749,7 +1769,7 @@ function renderRelatorioView(app){
     <div class="relatorio-card card-total"><div class="valor">${porOrdem.size}</div><div class="label">Total de ordens com problema</div></div>
     <div class="relatorio-card card-atrasado"><div class="valor">${porSituacao["Atrasado"]||0}</div><div class="label">Total de itens com atraso</div></div>
     <div class="relatorio-card card-emdia"><div class="valor">${porSituacao["Em dia"]||0}</div><div class="label">Em dia</div></div>
-    <div class="relatorio-card card-pendente"><div class="valor">${porStatus["Atenção"]||0}</div><div class="label">Atenção (não mostrado)</div></div>
+    <div class="relatorio-card card-pendente"><div class="valor">${ordensAguardando24h}</div><div class="label">Aguardando retorno há mais de 24h</div></div>
   `;
   app.appendChild(cards);
 
@@ -1879,7 +1899,10 @@ function renderRelatorioView(app){
         checkSemAcesso.querySelector("input").onchange = (e) => toggleCampoBooleano(o.ordem, div, rid, "semAcessoSite", e.target.checked);
         acoes.appendChild(checkSemAcesso);
       } else if(ATENCAO_SUBVIEW === "aguardando"){
-        const horasTxt = horasSemRetorno !== null ? `${Math.floor(horasSemRetorno)}h sem retorno` : "Sem registro de horário";
+        let horasTxt;
+        if(horasSemRetorno === null) horasTxt = "Sem registro de horário";
+        else if(horasSemRetorno >= 24) horasTxt = `${Math.floor(horasSemRetorno/24)}d sem retorno`;
+        else horasTxt = `${Math.floor(horasSemRetorno)}h sem retorno`;
         acoes.appendChild(el("span", "atencao-badge" + (semRetornoUrgente ? "" : " atencao-badge-ok"), horasTxt));
         const btnRowAguardando = el("div");
         btnRowAguardando.style.cssText = "display:flex; gap:6px;";
