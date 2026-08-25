@@ -998,22 +998,23 @@ function analisarOrdem(ordem){
   const pendentes = itens.filter(it => !itemEntregue(it));
   const total = itens.length;
   const entreguesCount = total - pendentes.length;
-  // só é considerado "problema real" quando existe uma MISTURA: pelo menos 1 entregue e pelo menos 1 pendente.
-  // se nada chegou ainda, é apenas "aguardando entrega" normal, não uma divergência.
-  const temProblemaReal = pendentes.length > 0 && entreguesCount > 0;
 
   // referência de atraso: data de chegada PREVISTA dos itens ainda pendentes
   const basePara = pendentes.length ? pendentes : itens;
   const datasChegada = basePara.map(it => parseDataBR(it.dataChegada)).filter(Boolean);
   const dataChegadaMin = datasChegada.length ? new Date(Math.min(...datasChegada.map(d=>d.getTime()))) : null;
-  const diasAtraso = dataChegadaMin ? diasEntre(dataChegadaMin, new Date()) : null; // >0 = atrasado, <=0 = dentro do prazo
+  const diasAtraso = dataChegadaMin ? diasEntre(dataChegadaMin, new Date()) : null; // >0 = atrasado, <=0 = dentro do prazo, null = sem data (conta como atrasado)
 
   // mantido como referência secundária (usado só se não houver data de chegada)
   const datasCompra = basePara.map(it => parseDataBR(it.dataCompra)).filter(Boolean);
   const dataCompraMin = datasCompra.length ? new Date(Math.min(...datasCompra.map(d=>d.getTime()))) : null;
   const diasDesdeCompra = dataCompraMin ? diasEntre(dataCompraMin, new Date()) : null;
 
-  // conta como problema desde que tenha mistura de entregue/faltando — não depende mais de dias de atraso
+  // é considerado "problema real" quando: tem item pendente E (já tem mistura com algum entregue OU já está atrasada, mesmo com 0 entregues)
+  const efetivamenteAtrasada = diasAtraso === null || diasAtraso >= 1;
+  const temProblemaReal = pendentes.length > 0 && (entreguesCount > 0 || efetivamenteAtrasada);
+
+  // conta como problema desde que se enquadre na regra acima
   const candidata = temProblemaReal;
 
   return { itens, pendentes, total, dataCompraMin, diasDesdeCompra, dataChegadaMin, diasAtraso, candidata, temProblemaReal };
