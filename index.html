@@ -1917,7 +1917,7 @@ function renderRelatorioView(app){
   });
   ativarSelectCustom("atencaoVendedoraSelect", (v) => { ATENCAO_FILTRO_VENDEDORA = v; renderApp(); });
   ativarSelectCustom("atencaoLojaSelect", (v) => { ATENCAO_FILTRO_LOJA = v; renderApp(); });
-  document.getElementById("atencaoBuscaInput").oninput = (e) => { ATENCAO_FILTRO_TEXTO = e.target.value; renderApp(); };
+  document.getElementById("atencaoBuscaInput").oninput = (e) => { ATENCAO_FILTRO_TEXTO = e.target.value; renderAppPreservandoFoco("atencaoBuscaInput"); };
 
   requestAnimationFrame(() => {
     const c1 = new Chart(document.getElementById("chartStatus"), {
@@ -1947,6 +1947,18 @@ function renderRelatorioView(app){
     });
     CHARTS_RELATORIO = [c1, c2, c3];
   });
+}
+
+// re-renderiza mas mantém o foco/cursor no campo de texto que estava sendo digitado
+function renderAppPreservandoFoco(inputId){
+  const inputAtivo = document.getElementById(inputId);
+  const cursorPos = inputAtivo ? inputAtivo.selectionStart : null;
+  renderApp();
+  const novoInput = document.getElementById(inputId);
+  if(novoInput){
+    novoInput.focus();
+    if(cursorPos !== null) novoInput.setSelectionRange(cursorPos, cursorPos);
+  }
 }
 
 function renderApp(){
@@ -2029,7 +2041,7 @@ function renderApp(){
       (x) => cardOrdem(x.ordem, x.div), filtro.status !== "resolvido");
   }
 
-  document.getElementById("buscaInput").oninput = (e) => { filtro.texto = e.target.value; renderApp(); };
+  document.getElementById("buscaInput").oninput = (e) => { filtro.texto = e.target.value; renderAppPreservandoFoco("buscaInput"); };
   ativarSelectCustom("origemSelect", (v) => { filtro.origem = v; renderApp(); });
   ativarSelectCustom("vendedoraSelect", (v) => { filtro.vendedora = v; renderApp(); });
   ativarSelectCustom("ordenacaoSelect", (v) => { filtro.ordenacao = v; renderApp(); });
