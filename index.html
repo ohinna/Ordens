@@ -202,11 +202,11 @@
 
   .relatorio-charts{ display:flex; gap:16px; flex-wrap:wrap; margin-bottom:26px; }
   .chart-box{
-    flex:1; min-width:280px; background:#fff; border-radius:var(--radius);
-    box-shadow:var(--shadow); padding:16px; height:280px;
+    flex:1 1 260px; max-width:320px; min-width:220px; background:#fff; border-radius:var(--radius);
+    box-shadow:var(--shadow); padding:14px; height:200px;
   }
-  .chart-box h3{ font-family:'Space Grotesk',sans-serif; font-size:14px; margin:0 0 8px; }
-  .chart-box canvas{ max-height:220px; }
+  .chart-box h3{ font-family:'Space Grotesk',sans-serif; font-size:13px; margin:0 0 6px; }
+  .chart-box canvas{ max-height:150px; }
 
   .atencao-card{
     background:var(--panel); border:1px solid var(--panel-border); border-left:5px solid var(--red);
@@ -330,6 +330,10 @@
   }
   .item-outcome-check input{width:13px; height:13px; cursor:pointer;}
   .item-outcome-check.checked{color:var(--ink); font-weight:600;}
+  .item-obs-input{
+    font-family:'Inter',sans-serif; font-size:11.5px; border:1px solid var(--panel-border);
+    border-radius:7px; padding:4px 8px; min-width:140px; flex:1;
+  }
   .verificado-check{
     display:flex; align-items:center; gap:6px;
     font-size:12px; color:var(--ink-soft); cursor:pointer;
@@ -1136,11 +1140,14 @@ async function copiarAlertaComoImagem(ordem, divergencia, btn){
     row.style.cssText = "display:flex; gap:10px; align-items:center; padding:8px; background:#FBE1E1; border-radius:8px; margin-bottom:6px;";
     const resolvido = resolverFoto(it.foto, FOTO_MAP_USA, FOTO_MAP_BR);
     const fotoValida = resolvido && /^https?:\/\//.test(resolvido) && !/\/d\/[a-zA-Z0-9_-]+\.[a-zA-Z0-9]+(?:=|$)/.test(resolvido);
+    const itemIdx = a.itens.indexOf(it);
+    const obsItem = (divergencia && divergencia.itensResultado && divergencia.itensResultado[itemIdx] && divergencia.itensResultado[itemIdx].obsItem) || "";
     row.innerHTML = `
       ${fotoValida ? `<img src="${resolvido}" crossorigin="anonymous" style="width:46px; height:46px; object-fit:cover; border-radius:6px; background:#eee; flex-shrink:0;">` : `<div style="width:46px; height:46px; border-radius:6px; background:#eee; flex-shrink:0;"></div>`}
       <div style="font-size:12.5px; color:#333;">
         <b>${it.item || "item"}</b><br>
         <span style="color:#666;">Comprado em ${it.dataCompra || "-"} · Chegada ${it.dataChegada || "-"}</span>
+        ${obsItem.trim() ? `<br><span style="color:#999; font-size:11.5px;">📝 ${obsItem.trim()}</span>` : ""}
       </div>
     `;
     itensBox.appendChild(row);
@@ -1273,6 +1280,33 @@ function itemFotoEl(it){
 }
 
 // versão usada na aba Relatório: mostra só os itens com problema (não os já entregues)
+// monta as checkboxes de resultado + campo de observação de um item (usado nas duas listas)
+function montarOutcomesItem(ordem, divergencia, rid, idx){
+  const resultadoAtual = (divergencia && divergencia.itensResultado && divergencia.itensResultado[idx]) || {};
+  const outcomes = el("div","item-outcomes");
+  RESULTADOS_ITEM.forEach(opt => {
+    const marcado = !!resultadoAtual[opt.key];
+    const lbl = el("label","item-outcome-check" + (marcado ? " checked" : ""));
+    lbl.innerHTML = `<input type="checkbox" ${marcado ? "checked" : ""}> ${opt.label}`;
+    lbl.onclick = (e) => e.stopPropagation();
+    lbl.querySelector("input").onchange = (e) => toggleItemResultado(ordem, divergencia, rid, idx, opt.key, e.target.checked);
+    outcomes.appendChild(lbl);
+  });
+  const obsInput = document.createElement("input");
+  obsInput.type = "text";
+  obsInput.placeholder = "Observação…";
+  obsInput.value = resultadoAtual.obsItem || "";
+  obsInput.className = "item-obs-input";
+  obsInput.onclick = (e) => e.stopPropagation();
+  obsInput.onblur = (e) => {
+    if(e.target.value !== (resultadoAtual.obsItem || "")){
+      toggleItemResultado(ordem, divergencia, rid, idx, "obsItem", e.target.value);
+    }
+  };
+  outcomes.appendChild(obsInput);
+  return outcomes;
+}
+
 function renderItemListSomentePendentes(ordem, divergencia, rid){
   const a = analisarOrdem(ordem);
   const wrap = el("div","item-list");
@@ -1305,17 +1339,7 @@ function renderItemListSomentePendentes(ordem, divergencia, rid){
     }
 
     if(isFaltandoReal){
-      const resultadoAtual = (divergencia && divergencia.itensResultado && divergencia.itensResultado[idx]) || {};
-      const outcomes = el("div","item-outcomes");
-      RESULTADOS_ITEM.forEach(opt => {
-        const marcado = !!resultadoAtual[opt.key];
-        const lbl = el("label","item-outcome-check" + (marcado ? " checked" : ""));
-        lbl.innerHTML = `<input type="checkbox" ${marcado ? "checked" : ""}> ${opt.label}`;
-        lbl.onclick = (e) => e.stopPropagation();
-        lbl.querySelector("input").onchange = (e) => toggleItemResultado(ordem, divergencia, rid, idx, opt.key, e.target.checked);
-        outcomes.appendChild(lbl);
-      });
-      info.appendChild(outcomes);
+      info.appendChild(montarOutcomesItem(ordem, divergencia, rid, idx));
     }
 
     row.appendChild(el("span", "item-status " + (isFaltandoReal ? "pendente" : "aguardando"), isFaltandoReal ? "Faltando" : "Aguardando entrega"));
@@ -1358,17 +1382,7 @@ function renderItemList(ordem, divergencia, rid){
     }
 
     if(isFaltandoReal){
-      const resultadoAtual = (divergencia && divergencia.itensResultado && divergencia.itensResultado[idx]) || {};
-      const outcomes = el("div","item-outcomes");
-      RESULTADOS_ITEM.forEach(opt => {
-        const marcado = !!resultadoAtual[opt.key];
-        const lbl = el("label","item-outcome-check" + (marcado ? " checked" : ""));
-        lbl.innerHTML = `<input type="checkbox" ${marcado ? "checked" : ""}> ${opt.label}`;
-        lbl.onclick = (e) => e.stopPropagation();
-        lbl.querySelector("input").onchange = (e) => toggleItemResultado(ordem, divergencia, rid, idx, opt.key, e.target.checked);
-        outcomes.appendChild(lbl);
-      });
-      info.appendChild(outcomes);
+      info.appendChild(montarOutcomesItem(ordem, divergencia, rid, idx));
     }
 
     const statusCls = entregue ? "ok" : (isFaltandoReal ? "pendente" : "aguardando");
