@@ -793,6 +793,7 @@ let VIEW_ATUAL = "relatorio"; // "ordens" | "relatorio"
 let ATENCAO_SUBVIEW = "atencao"; // "atencao" | "aguardando" | "resolvido"
 let ATENCAO_FILTRO_VENDEDORA = "todas";
 let ATENCAO_FILTRO_LOJA = "todas";
+let ATENCAO_FILTRO_TEXTO = "";
 
 /* ---------- Resolução de fotos (mesma lógica do ir-atras) ---------- */
 async function carregarMapaFotos(fbDoc) {
@@ -1750,7 +1751,13 @@ function renderRelatorioView(app){
   const subTabs = el("div","atencao-subtabs");
   const atencaoComFiltros = atencao
     .filter(o => ATENCAO_FILTRO_VENDEDORA === "todas" || (o.ordem.vendedora||"-").trim() === ATENCAO_FILTRO_VENDEDORA)
-    .filter(o => ATENCAO_FILTRO_LOJA === "todas" || lojaDe(o.ordem) === ATENCAO_FILTRO_LOJA);
+    .filter(o => ATENCAO_FILTRO_LOJA === "todas" || lojaDe(o.ordem) === ATENCAO_FILTRO_LOJA)
+    .filter(o => {
+      if(!ATENCAO_FILTRO_TEXTO) return true;
+      const t = ATENCAO_FILTRO_TEXTO.toLowerCase();
+      const alvo = `${o.ordem.ordem} ${lojaDe(o.ordem)} ${o.ordem.vendedora || ""}`.toLowerCase();
+      return alvo.includes(t);
+    });
 
   const naoMostradas = [], aguardandoRetorno = [], resolvidas = [];
   atencaoComFiltros.forEach(o => {
@@ -1777,7 +1784,11 @@ function renderRelatorioView(app){
       <button type="button" class="atencao-subtab${ATENCAO_SUBVIEW==='atencao'?' active':''}" data-tab="atencao">Atenção <span class="n">${naoMostradas.length}</span></button>
       <button type="button" class="atencao-subtab${ATENCAO_SUBVIEW==='aguardando'?' active':''}" data-tab="aguardando">Aguardando retorno <span class="n">${aguardandoRetorno.length}</span></button>
       <button type="button" class="atencao-subtab${ATENCAO_SUBVIEW==='resolvido'?' active':''}" data-tab="resolvido">Resolvido <span class="n">${resolvidas.length}</span></button>
-      <div class="atencao-filtro-vendedora" style="display:flex; gap:8px; margin-left:auto;">${filtroLojaHTML}${filtroVendedoraHTML}</div>
+      <div class="atencao-filtro-vendedora" style="display:flex; gap:8px; margin-left:auto;">
+        <input type="text" id="atencaoBuscaInput" placeholder="Buscar por ordem, loja ou vendedora…" value="${ATENCAO_FILTRO_TEXTO}"
+          style="font-family:'Inter',sans-serif; font-size:13px; border:1px solid var(--panel-border); border-radius:10px; padding:7px 11px; min-width:220px;">
+        ${filtroLojaHTML}${filtroVendedoraHTML}
+      </div>
     </div>
   `;
   atencaoSection.innerHTML = `<div class="section-head"><h2>Ordens que precisam de atenção</h2><span class="hint">atrasadas há 1+ dia — avisar a vendedora e acompanhar retorno</span></div>`;
@@ -1891,6 +1902,7 @@ function renderRelatorioView(app){
   });
   ativarSelectCustom("atencaoVendedoraSelect", (v) => { ATENCAO_FILTRO_VENDEDORA = v; renderApp(); });
   ativarSelectCustom("atencaoLojaSelect", (v) => { ATENCAO_FILTRO_LOJA = v; renderApp(); });
+  document.getElementById("atencaoBuscaInput").oninput = (e) => { ATENCAO_FILTRO_TEXTO = e.target.value; renderApp(); };
 
   requestAnimationFrame(() => {
     const c1 = new Chart(document.getElementById("chartStatus"), {
