@@ -789,8 +789,12 @@ let ATENCAO_EXPANDIDAS = new Set(); // rids expandidos na aba Relatório (Ordens
 let FOTO_MAP_USA = {};
 let FOTO_MAP_BR = {};
 let ULTIMA_ATUALIZACAO = null;
-let VIEW_ATUAL = "relatorio"; // "ordens" | "relatorio"
-let ATENCAO_SUBVIEW = "atencao"; // "atencao" | "aguardando" | "resolvido"
+let VIEW_ATUAL = localStorage.getItem("cd_view_atual") || "relatorio"; // "ordens" | "relatorio"
+let ATENCAO_SUBVIEW = localStorage.getItem("cd_atencao_subview") || "atencao"; // "atencao" | "aguardando" | "resolvido"
+function setAtencaoSubview(v){
+  ATENCAO_SUBVIEW = v;
+  localStorage.setItem("cd_atencao_subview", v);
+}
 let ATENCAO_FILTRO_VENDEDORA = "todas";
 let ATENCAO_FILTRO_LOJA = "todas";
 let ATENCAO_FILTRO_TEXTO = "";
@@ -1535,7 +1539,7 @@ function cardOrdem(ordem, divergencia, opts={}){
     }
 
     const btnMostrado = el("button","btn btn-ghost btn-sm","✓ Mostrado à vendedora");
-    btnMostrado.onclick = () => { btnMostrado.classList.remove("btn-ghost"); btnMostrado.classList.add("btn-check-mostrar"); toggleAtencaoMostrado(ordem, divergencia, rid, true); };
+    btnMostrado.onclick = () => { btnMostrado.disabled = true; btnMostrado.textContent = "Salvando…"; toggleAtencaoMostrado(ordem, divergencia, rid, true); };
     actions.appendChild(btnMostrado);
   } else if(estado === "aguardando"){
     const btnResolver = el("button","btn btn-brand btn-sm","Marcar retorno recebido");
@@ -1640,6 +1644,8 @@ async function toggleAtencaoMostrado(ordem, divergencia, rid, valor){
   try{
     await db.collection(DIVERGENCIAS_COLLECTION).doc(rid).set(base, { merge: true });
     DIVERGENCIAS[rid] = { id: rid, ...base };
+    setAtencaoSubview(valor ? "aguardando" : "atencao");
+    if(valor) toast("Salvo — pode atualizar a página com segurança");
     renderApp();
   }catch(e){
     console.error(e);
@@ -1652,6 +1658,7 @@ async function marcarAtencaoResolvido(rid){
   try{
     await db.collection(DIVERGENCIAS_COLLECTION).doc(rid).set(update, { merge: true });
     DIVERGENCIAS[rid] = { ...DIVERGENCIAS[rid], ...update };
+    setAtencaoSubview("resolvido");
     toast("Retorno registrado");
     renderApp();
   }catch(e){
@@ -1665,6 +1672,7 @@ async function reabrirAtencao(rid){
   try{
     await db.collection(DIVERGENCIAS_COLLECTION).doc(rid).set(update, { merge: true });
     DIVERGENCIAS[rid] = { ...DIVERGENCIAS[rid], ...update };
+    setAtencaoSubview("aguardando");
     renderApp();
   }catch(e){
     console.error(e);
@@ -1847,7 +1855,7 @@ function renderRelatorioView(app){
         btnImg.onclick = (e) => copiarAlertaComoImagem(o.ordem, div, e.target);
         btnRow.appendChild(btnImg);
         const btnMostrado = el("button","btn btn-ghost btn-sm","✓ Mostrado à vendedora");
-        btnMostrado.onclick = () => { btnMostrado.classList.remove("btn-ghost"); btnMostrado.classList.add("btn-check-mostrar"); toggleAtencaoMostrado(o.ordem, div, rid, true); };
+        btnMostrado.onclick = () => { btnMostrado.disabled = true; btnMostrado.textContent = "Salvando…"; toggleAtencaoMostrado(o.ordem, div, rid, true); };
         btnRow.appendChild(btnMostrado);
         acoes.appendChild(btnRow);
         const verificadoAtencao = div && div.verificadoSite;
@@ -1898,7 +1906,7 @@ function renderRelatorioView(app){
   app.appendChild(atencaoSection);
 
   subTabs.querySelectorAll(".atencao-subtab").forEach(btn => {
-    btn.onclick = () => { ATENCAO_SUBVIEW = btn.getAttribute("data-tab"); renderApp(); };
+    btn.onclick = () => { setAtencaoSubview(btn.getAttribute("data-tab")); renderApp(); };
   });
   ativarSelectCustom("atencaoVendedoraSelect", (v) => { ATENCAO_FILTRO_VENDEDORA = v; renderApp(); });
   ativarSelectCustom("atencaoLojaSelect", (v) => { ATENCAO_FILTRO_LOJA = v; renderApp(); });
@@ -1941,7 +1949,7 @@ function renderApp(){
   const tabs = el("div","view-tabs");
   [["ordens","Ordens"],["relatorio","Relatório"]].forEach(([key,label]) => {
     const btn = el("button","view-tab" + (VIEW_ATUAL===key ? " active" : ""), label);
-    btn.onclick = () => { VIEW_ATUAL = key; renderApp(); };
+    btn.onclick = () => { VIEW_ATUAL = key; localStorage.setItem("cd_view_atual", key); renderApp(); };
     tabs.appendChild(btn);
   });
   app.appendChild(tabs);
