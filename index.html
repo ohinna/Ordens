@@ -1724,7 +1724,7 @@ function renderRelatorioView(app){
 
   const cards = el("div","relatorio-cards");
   cards.innerHTML = `
-    <div class="relatorio-card card-total"><div class="valor">${linhas.length}</div><div class="label">Total com problema</div></div>
+    <div class="relatorio-card card-total"><div class="valor">${porOrdem.size}</div><div class="label">Total de ordens com problema</div></div>
     <div class="relatorio-card card-atrasado"><div class="valor">${porSituacao["Atrasado"]||0}</div><div class="label">Atrasados</div></div>
     <div class="relatorio-card card-emdia"><div class="valor">${porSituacao["Em dia"]||0}</div><div class="label">Em dia</div></div>
     <div class="relatorio-card card-pendente"><div class="valor">${porStatus["Atenção"]||0}</div><div class="label">Atenção (não mostrado)</div></div>
