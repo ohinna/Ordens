@@ -1401,7 +1401,9 @@ function cardOrdem(ordem, divergencia, opts={}){
   const isExpanded = EXPANDIDAS.has(rid);
 
   let nivel = "lvl-emdia";
-  if(a.diasAtraso !== null && a.diasAtraso > 0){
+  if(a.diasAtraso === null){
+    nivel = "lvl-late";
+  } else if(a.diasAtraso > 0){
     if(isUrgent || a.diasAtraso > 5) nivel = "lvl-late";
     else if(a.diasAtraso > 3) nivel = "lvl-warn";
     else nivel = "lvl-ok";
@@ -1463,18 +1465,20 @@ function cardOrdem(ordem, divergencia, opts={}){
 
   const side = el("div","card-side");
 
-  if(a.diasAtraso !== null){
-    if(a.diasAtraso <= 0){
-      side.appendChild(el("div","days-tag days-emdia","Em dia"));
-    } else {
-      let cls = "days-ok", rotulo = "leve";
-      if(a.diasAtraso > 5){ cls = "days-late"; rotulo = "atrasado"; }
-      else if(a.diasAtraso > 3){ cls = "days-warn"; rotulo = "moderado"; }
-      side.appendChild(el("div", `days-tag ${cls}`, `${a.diasAtraso}d atraso — ${rotulo}`));
-    }
+  if(a.diasAtraso === null){
+    side.appendChild(el("div","days-tag days-late","Sem data — atrasado"));
+  } else if(a.diasAtraso <= 0){
+    side.appendChild(el("div","days-tag days-emdia","Em dia"));
+  } else {
+    let cls = "days-ok", rotulo = "leve";
+    if(a.diasAtraso > 5){ cls = "days-late"; rotulo = "atrasado"; }
+    else if(a.diasAtraso > 3){ cls = "days-warn"; rotulo = "moderado"; }
+    side.appendChild(el("div", `days-tag ${cls}`, `${a.diasAtraso}d atraso — ${rotulo}`));
   }
 
-  if(estado === "atencao" && a.diasAtraso !== null && a.diasAtraso > 0){
+  if(estado === "atencao" && a.diasAtraso === null){
+    side.appendChild(el("div","days-tag days-late","Aguardando reportar (sem data)"));
+  } else if(estado === "atencao" && a.diasAtraso !== null && a.diasAtraso > 0){
     let clsRep = "days-ok";
     if(a.diasAtraso > 5) clsRep = "days-late";
     else if(a.diasAtraso > 3) clsRep = "days-warn";
@@ -1693,7 +1697,7 @@ function renderRelatorioView(app){
   const porSituacao = {};
   linhas.forEach(l => {
     let chave;
-    if(l.diasAtraso === null) chave = "Sem data prevista";
+    if(l.diasAtraso === null) chave = "Atrasado"; // sem data prevista conta sempre como atrasado
     else if(l.diasAtraso <= 0) chave = "Em dia";
     else if(l.diasAtraso <= 3) chave = "Atraso leve";
     else if(l.diasAtraso <= 5) chave = "Atraso moderado";
@@ -1705,14 +1709,15 @@ function renderRelatorioView(app){
   const porVendedora = {};
   linhas.forEach(l => { porVendedora[l.vendedora] = (porVendedora[l.vendedora]||0) + 1; });
 
-  // ordens que precisam de atenção: já atrasadas (1+ dia), mais urgentes primeiro
+  // ordens que precisam de atenção: já atrasadas (1+ dia, ou sem data — que conta como atrasado), mais urgentes primeiro
   const porOrdem = new Map();
   linhas.forEach(l => {
     const rid = recordId(l.ordem);
     if(!porOrdem.has(rid)) porOrdem.set(rid, { ordem: l.ordem, maxAtraso: -9999, itens: [] });
     const entry = porOrdem.get(rid);
     entry.itens.push(l.item.item || "item");
-    if(l.diasAtraso !== null && l.diasAtraso > entry.maxAtraso) entry.maxAtraso = l.diasAtraso;
+    const diasEfetivo = l.diasAtraso === null ? Infinity : l.diasAtraso;
+    if(diasEfetivo > entry.maxAtraso) entry.maxAtraso = diasEfetivo;
   });
   const atencao = Array.from(porOrdem.values()).filter(o => o.maxAtraso >= 1).sort((a,b) => b.maxAtraso - a.maxAtraso);
 
@@ -1821,7 +1826,7 @@ function renderRelatorioView(app){
       acoes.style.cssText = "display:flex; flex-direction:column; align-items:flex-end; gap:8px;";
 
       if(ATENCAO_SUBVIEW === "atencao"){
-        acoes.appendChild(el("span","atencao-badge", `${o.maxAtraso}d atrasado`));
+        acoes.appendChild(el("span","atencao-badge", o.maxAtraso === Infinity ? "Sem data — atrasado" : `${o.maxAtraso}d atrasado`));
         const btnRow = el("div");
         btnRow.style.cssText = "display:flex; gap:6px;";
         const btnCopy = el("button","btn btn-brand btn-sm","Copiar alerta");
