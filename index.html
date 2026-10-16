@@ -1142,19 +1142,31 @@ async function copiarAlertaComoImagem(ordem, divergencia, btn){
     ${divergencia && divergencia.obs && divergencia.obs.trim() ? `<div style="font-size:12px; color:#8A8A8A; background:#F5F5F5; border-radius:8px; padding:8px 10px; margin-bottom:12px;">📝 ${divergencia.obs.trim()}</div>` : ""}
   `;
   const itensBox = document.createElement("div");
+  const grupos = [];
+  const mapaGrupos = {};
   itensAtrasados.forEach(it => {
+    const k = [it.item, it.marca, it.cor, it.tam, it.dataCompra, it.dataChegada].map(v => String(v || "").trim().toUpperCase()).join("|");
+    if(!mapaGrupos[k]){ mapaGrupos[k] = { it, qtd: 0, obs: [] }; grupos.push(mapaGrupos[k]); }
+    const g = mapaGrupos[k];
+    g.qtd++;
+    const o = ((divergencia && divergencia.itensResultado && divergencia.itensResultado[chaveItem(it)] && divergencia.itensResultado[chaveItem(it)].obsItem) || "").trim();
+    if(o && !g.obs.includes(o)) g.obs.push(o);
+  });
+  grupos.forEach(g => {
+    const it = g.it;
     const row = document.createElement("div");
     row.style.cssText = "display:flex; gap:10px; align-items:center; padding:8px; background:#FBE1E1; border-radius:8px; margin-bottom:6px;";
     const resolvido = resolverFoto(it.foto, FOTO_MAP_USA, FOTO_MAP_BR);
     const fotoValida = resolvido && /^https?:\/\//.test(resolvido) && !/\/d\/[a-zA-Z0-9_-]+\.[a-zA-Z0-9]+(?:=|$)/.test(resolvido);
-    const obsItem = (divergencia && divergencia.itensResultado && divergencia.itensResultado[chaveItem(it)] && divergencia.itensResultado[chaveItem(it)].obsItem) || "";
+    const obsTxt = g.obs.join(" / ");
     row.innerHTML = `
       ${fotoValida ? `<img src="${resolvido}" crossorigin="anonymous" style="width:46px; height:46px; object-fit:cover; border-radius:6px; background:#eee; flex-shrink:0;">` : `<div style="width:46px; height:46px; border-radius:6px; background:#eee; flex-shrink:0;"></div>`}
-      <div style="font-size:12.5px; color:#333;">
+      <div style="font-size:12.5px; color:#333; flex:1;">
         <b>${it.item || "item"}</b><br>
         <span style="color:#666;">Comprado em ${it.dataCompra || "-"} · Chegada ${it.dataChegada || "-"}</span>
-        ${obsItem.trim() ? `<br><span style="color:#999; font-size:11.5px;">📝 ${obsItem.trim()}</span>` : ""}
+        ${obsTxt ? `<br><span style="color:#999; font-size:11.5px;">📝 ${obsTxt}</span>` : ""}
       </div>
+      ${g.qtd > 1 ? `<div style="font-size:16px; font-weight:bold; color:#C22B2B; white-space:nowrap; padding-left:6px;">x${g.qtd}</div>` : ""}
     `;
     itensBox.appendChild(row);
   });
@@ -1368,7 +1380,6 @@ function renderItemList(ordem, divergencia, rid){
     const row = el("div","item-row" + rowCls);
     const fotoEl = itemFotoEl(it);
     row.appendChild(fotoEl);
-    adicionarCheckboxSelecaoFoto(fotoEl, it, rid, idx);
     const info = el("div","item-info");
     info.innerHTML = `<div class="item-name">${it.item || "Item sem nome"}</div>` +
       `<div class="item-meta">${[it.marca, it.cor, it.tam].filter(Boolean).join(" · ") || "-"}` +
